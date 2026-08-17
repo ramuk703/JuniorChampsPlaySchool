@@ -1,21 +1,42 @@
+const auditLog = require("../utils/auditLog");
 const Teacher = require("../models/Teacher");
 const ApiResponse = require("../utils/ApiResponse");
 const fs = require("fs-extra");
 const ExcelJS = require("exceljs");
 
 exports.createTeacher = async (req, res) => {
-  const teacherData = req.body;
+  try {
+    const teacherData = req.body;
 
-  if (req.file) {
-    teacherData.photo = req.file.path;
+    if (req.file) {
+      teacherData.photo = req.file.path;
+    }
+
+    // टीचर डेटाबेस में सेव हुआ
+    const teacher = await Teacher.create(teacherData);
+
+    // ==========================================
+    // 👇 यहाँ Audit Log दर्ज करें
+    // ==========================================
+    auditLog({
+      req,
+      action: "CREATE",
+      resource: "Teacher",
+      resourceId: teacher._id,
+    });
+    // ==========================================
+
+    const apiResponse = require("../utils/ApiResponse");
+    apiResponse.created(res, "Teacher created successfully", teacher);
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
-  const teacher = await Teacher.create(teacherData);
-
-  const apiResponse = require("../utils/ApiResponse");
-  apiResponse.created(res, "Teacher created successfully", teacher);
 };
 
-const asyncHandler = require("../middleware/asyncHandler");
+const asyncHandler = require("../middleware/async.Handler");
 
 exports.getTeachers = asyncHandler(async (req, res) => {
   const teachers = await Teacher.find();
@@ -105,7 +126,6 @@ exports.updateTeacher = async (req, res) => {
     }
 
     // 3. Form se aaya hua baaki data body se lekar update karein
-    // Yeh line poore body ke data ko ek sath handle kar legi
     Object.assign(teacher, req.body);
 
     // 4. Agar nayi photo upload hui hai, toh uska path set karein
@@ -115,6 +135,17 @@ exports.updateTeacher = async (req, res) => {
 
     // 5. Badlaav ko database mein save karein
     await teacher.save();
+
+    // ==========================================
+    // 👇 यहाँ पर Audit Log दर्ज करें 👇
+    // ==========================================
+    auditLog({
+      req,
+      action: "UPDATE",
+      resource: "Teacher",
+      resourceId: teacher._id,
+    });
+    // ==========================================
 
     res.json({
       success: true,
@@ -139,6 +170,17 @@ exports.deleteTeacher = async (req, res) => {
         message: "Teacher not found",
       });
     }
+
+    // ==========================================
+    // 👇 यहाँ पर Audit Log दर्ज करें 👇
+    // ==========================================
+    auditLog({
+      req,
+      action: "DELETE",
+      resource: "Teacher",
+      resourceId: teacher._id, // या req.params.id
+    });
+    // ==========================================
 
     res.json({
       success: true,

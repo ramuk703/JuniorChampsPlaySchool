@@ -8,11 +8,11 @@ const {
   getPayments,
 
   markPaid,
-} = require("../controllers/feeController");
+} = require("../controllers/fee.controller");
 
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth.Middleware");
 
-const adminOnly = require("../middleware/adminMiddleware");
+const adminOnly = require("../middleware/admin.Middleware");
 
 router.use(protect);
 

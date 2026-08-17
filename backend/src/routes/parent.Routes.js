@@ -8,9 +8,9 @@ const {
   loginParent,
 
   dashboard,
-} = require("../controllers/parentController");
+} = require("../controllers/parent.Controller");
 
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth.Middleware");
 
 router.post("/register", registerParent);
 

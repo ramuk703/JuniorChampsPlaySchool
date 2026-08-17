@@ -1,44 +1,34 @@
 const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
 const path = require("path");
+
 const { swaggerUi, swaggerSpec } = require("./docs/swagger");
+
+const configureMiddleware = require("./config/middleware");
+const configureRoutes = require("./config/routes");
+
+const errorHandler = require("./middleware/error.Middleware");
+
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-app.use(morgan("dev"));
+app.set("trust proxy", 1);
+
+configureMiddleware(app);
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// Health Check
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "Junior Champs API Running",
+    message: "Junior Champ's Play School API Running",
+    version: "1.0.0",
   });
 });
 
-// Routes
-app.use("/api/v1/auth", require("./routes/authRoutes"));
-app.use("/api/v1/students", require("./routes/studentRoutes"));
-app.use("/api/v1/teachers", require("./routes/teacherRoutes"));
-app.use("/api/v1/attendance", require("./routes/attendanceRoutes"));
-app.use("/api/v1/fees", require("./routes/feeRoutes"));
-app.use("/api/v1/parents", require("./routes/parentRoutes"));
+configureRoutes(app);
 
-app.get(
-  "/api/v1/dashboard/stats",
-  require("./controllers/dashboardController").getDashboardStats
-);
-
-app.get(
-  "/api/v1/export/teachers",
-  require("./controllers/teacherController").exportTeachersToExcel
-);
-
-// 404 Handler
+// 404
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -46,8 +36,7 @@ app.use((req, res) => {
   });
 });
 
-// Global Error Handler
-const errorHandler = require("./middleware/errorMiddleware");
+// Error Handler
 app.use(errorHandler);
 
 module.exports = app;

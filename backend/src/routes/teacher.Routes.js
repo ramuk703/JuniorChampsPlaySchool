@@ -1,5 +1,5 @@
 const express = require("express");
-const upload = require("../middleware/uploadMiddleware");
+const upload = require("../middleware/upload.Middleware");
 const validate = require("../middleware/validate");
 const router = express.Router();
 
@@ -10,10 +10,10 @@ const {
   getTeacherById,
   updateTeacher,
   deleteTeacher,
-} = require("../controllers/teacherController");
+} = require("../controllers/teacher.Controller");
 
-const { protect } = require("../middleware/authMiddleware");
-const adminOnly = require("../middleware/adminMiddleware");
+const { protect } = require("../middleware/auth.Middleware");
+const adminOnly = require("../middleware/admin.Middleware");
 
 // 2. Validators ka sahi path (Kyunki validators bhi ab src/ ke andar hai)
 const { teacherValidation } = require("../validators/teacherValidator");

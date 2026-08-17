@@ -1,4 +1,5 @@
 // Sahi paths: Kyunki controllers folder 'src' ke andar hai, toh ek folder peeche (src/) ja kar models aur utils milenge
+const auditLog = require("../utils/auditLog");
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 
@@ -57,6 +58,15 @@ const loginUser = async (req, res) => {
         message: "Invalid password",
       });
     }
+
+    auditLog({
+      req,
+      action: "LOGIN",
+      resource: "Authentication",
+      details: {
+        email: user.email,
+      },
+    });
 
     res.json({
       success: true,

@@ -6,10 +6,10 @@ const {
   registerUser,
   loginUser,
   getProfile,
-} = require("../controllers/authController");
+} = require("../controllers/auth.Controller");
 
 // Sahi path (Kyunki folder ka naam 'middleware' hai, 'middlewares' nahi)
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth.Middleware");
 
 /**
  * @swagger

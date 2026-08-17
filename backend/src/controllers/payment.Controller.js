@@ -19,17 +19,11 @@ exports.createOrder = async (req, res) => {
 };
 
 exports.verifyPayment = async (req, res) => {
-  const {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-  } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+    req.body;
 
   const generatedSignature = crypto
-    .createHmac(
-      "sha256",
-      process.env.RAZORPAY_SECRET
-    )
+    .createHmac("sha256", process.env.RAZORPAY_SECRET)
     .update(razorpay_order_id + "|" + razorpay_payment_id)
     .digest("hex");
 
@@ -65,7 +59,7 @@ exports.generateMonthlyFees = async (req, res) => {
       month: new Date().getMonth() + 1,
       year: new Date().getFullYear(),
       feeType: "Monthly",
-      amount: baseAmount,       // 600 की जगह वेरिएबल का नाम रखा
+      amount: baseAmount, // 600 की जगह वेरिएबल का नाम रखा
       totalAmount: totalAmount, // यहाँ अब totalAmount वेरिएबल का सही इस्तेमाल हो रहा है
       receiptNumber: "AUTO-" + Date.now() + student._id,
     });

@@ -1,8 +1,27 @@
 const Attendance = require("../models/User"); // Model path confirm kar lijiyega
 const ExcelJS = require("exceljs");
+const auditLog = require("../utils/auditLog"); // 👈 Audit Log Import Kiya
+
 // 1. Mark Attendance
 const markAttendance = async (req, res) => {
   try {
+    const { studentId, date, status } = req.body;
+
+    // ==========================================
+    // 👇 Attendance Save Hone Ke Baad Audit Log
+    // ==========================================
+    auditLog({
+      req,
+      action: "CREATE",
+      resource: "Attendance",
+      details: {
+        studentId: studentId || req.body.student,
+        date: date || new Date(),
+        status: status,
+      },
+    });
+    // ==========================================
+
     res
       .status(200)
       .json({ success: true, message: "Attendance marked successfully" });
@@ -41,6 +60,21 @@ const monthlyAttendance = async (req, res) => {
 // 5. Bulk Attendance
 const bulkAttendance = async (req, res) => {
   try {
+    // ==========================================
+    // 👇 Bulk Attendance Submit Hone Par Audit Log
+    // ==========================================
+    auditLog({
+      req,
+      action: "BULK_CREATE",
+      resource: "Attendance",
+      details: {
+        type: "BULK_ATTENDANCE",
+        date: req.body.date || new Date(),
+        totalStudents: req.body.attendanceData?.length || 0,
+      },
+    });
+    // ==========================================
+
     res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -99,7 +133,7 @@ const getAttendanceCalendar = async (req, res) => {
   }
 };
 
-// 8. Attendance Analytics (Is file me sirf YAHI ek akela attendanceStats hona chahiye)
+// 8. Attendance Analytics
 const attendanceStats = async (req, res) => {
   try {
     const startOfToday = new Date();
@@ -140,15 +174,10 @@ const attendanceStats = async (req, res) => {
   }
 };
 
-// controllers/attendanceController.js me niche add karein:
-
 const getParentAttendanceView = async (req, res) => {
   try {
-    // 1. Logged-in parent ke user record se student ki ID nikalna
-    // (Assume kar rahe hain ki aapke User model me parent ke paas 'studentId' ya 'child' save hai)
-    // Agar aapke login user object me bache ki field ka naam kuch aur hai to req.user.studentId ko badal lena
     const studentId = req.user.studentId || req.user.child;
-    const studentName = req.user.studentName || "Rahul Kumar"; // Backup fallback name
+    const studentName = req.user.studentName || "Rahul Kumar";
 
     if (!studentId) {
       return res.status(400).json({
@@ -157,7 +186,6 @@ const getParentAttendanceView = async (req, res) => {
       });
     }
 
-    // 2. Overall Attendance Percentage calculate karna
     const total = await Attendance.countDocuments({ student: studentId });
     const present = await Attendance.countDocuments({
       student: studentId,
@@ -166,7 +194,6 @@ const getParentAttendanceView = async (req, res) => {
     const attendancePercentage =
       total === 0 ? 0 : parseFloat(((present / total) * 100).toFixed(1));
 
-    // 3. Current Month ke records nikalna
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(
@@ -189,7 +216,6 @@ const getParentAttendanceView = async (req, res) => {
       status: record.status,
     }));
 
-    // 4. Exact Example Response format send karna
     res.status(200).json({
       student: studentName,
       attendancePercentage,
@@ -203,40 +229,31 @@ const getParentAttendanceView = async (req, res) => {
   }
 };
 
-// controllers/attendanceController.js me niche add karein:
-
 const exportAttendanceToExcel = async (req, res) => {
   try {
-    // 1. Database se saare attendance records nikalna
-    // (Aap chahein toh filter lagane ke liye query params bhi use kar sakte hain)
     const attendanceRecords = await Attendance.find({})
-      .populate("student", "name rollNumber") // Agar student reference model alag hai toh name fetch karega
+      .populate("student", "name rollNumber")
       .sort({ date: -1 });
 
-    // 2. ExcelJS Workbook aur Worksheet create karna
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Attendance Report");
 
-    // 3. Excel Columns define karna
     worksheet.columns = [
       { header: "Date", key: "date", width: 15 },
       { header: "Student Name", key: "studentName", width: 25 },
       { header: "Status", key: "status", width: 15 },
     ];
 
-    // 4. Rows background styling (Header ko bold banana)
     worksheet.getRow(1).font = { bold: true };
 
-    // 5. Records ko loop karke excel rows me push karna
     attendanceRecords.forEach((record) => {
       worksheet.addRow({
         date: record.date ? record.date.toISOString().split("T")[0] : "N/A",
-        studentName: record.student?.name || "Rahul Kumar", // Default fallback placeholder
+        studentName: record.student?.name || "Rahul Kumar",
         status: record.status,
       });
     });
 
-    // 6. Response me file download headers set karna
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -246,7 +263,6 @@ const exportAttendanceToExcel = async (req, res) => {
       "attachment; filename=attendance-report.xlsx"
     );
 
-    // 7. Stream data client/browser ko write back kar dena
     await workbook.xlsx.write(res);
     res.status(200).end();
   } catch (error) {
@@ -257,7 +273,6 @@ const exportAttendanceToExcel = async (req, res) => {
   }
 };
 
-// Sabhi clean and single export definitions
 module.exports = {
   markAttendance,
   getAttendance,

@@ -18,9 +18,9 @@ const {
   getAttendanceCalendar,
   getParentAttendanceView,
   exportAttendanceToExcel,
-} = require("../controllers/attendanceController");
+} = require("../controllers/attendance.Controller");
 
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth.Middleware");
 
 router.use(protect);
 

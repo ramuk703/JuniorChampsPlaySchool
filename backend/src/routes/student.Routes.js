@@ -2,9 +2,9 @@ const express = require("express");
 const router = express.Router();
 
 // 1. Middlewares ke sahi paths (Kyunki routes aur middleware dono src ke andar hain)
-const upload = require("../middleware/uploadMiddleware");
-const { protect } = require("../middleware/authMiddleware");
-const adminOnly = require("../middleware/adminMiddleware");
+const upload = require("../middleware/upload.Middleware");
+const { protect } = require("../middleware/auth.Middleware");
+const adminOnly = require("../middleware/admin.Middleware");
 
 // 2. Controller ka sahi path (../src/ hata kar sirf ../controllers/ kiya)
 const {
@@ -13,7 +13,7 @@ const {
   updateStudent,
   deleteStudent,
   searchStudent,
-} = require("../controllers/studentController");
+} = require("../controllers/student.Controller");
 
 // Global Middlewares for these routes
 router.use(protect);
