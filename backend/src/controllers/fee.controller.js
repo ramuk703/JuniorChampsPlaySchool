@@ -1,5 +1,8 @@
 const auditLog = require("../utils/auditLog");
 const FeePayment = require("../models/FeePayment");
+// 🔴 Redis Imports for Cache Invalidation
+const redisService = require("../services/redis.service");
+const redisKeys = require("../constants/redisKeys");
 
 // 1. Generate Fee (Fee Create Event)
 exports.generateFee = async (req, res) => {
@@ -26,6 +29,9 @@ exports.generateFee = async (req, res) => {
       },
     });
     // ==========================================
+
+    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on fee generation
+    await redisService.delete(redisKeys.dashboardStats());
 
     res.status(201).json({
       success: true,
@@ -89,6 +95,9 @@ exports.markPaid = async (req, res) => {
       },
     });
     // ==========================================
+
+    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on payment status update
+    await redisService.delete(redisKeys.dashboardStats());
 
     res.json({
       success: true,

@@ -3,6 +3,10 @@ const Teacher = require("../models/Teacher");
 const ApiResponse = require("../utils/ApiResponse");
 const fs = require("fs-extra");
 const ExcelJS = require("exceljs");
+// 🔴 Redis Imports for Cache Invalidation
+const redisService = require("../services/redis.service");
+const redisKeys = require("../constants/redisKeys");
+const asyncHandler = require("../middleware/async.Handler");
 
 exports.createTeacher = async (req, res) => {
   try {
@@ -12,22 +16,19 @@ exports.createTeacher = async (req, res) => {
       teacherData.photo = req.file.path;
     }
 
-    // टीचर डेटाबेस में सेव हुआ
     const teacher = await Teacher.create(teacherData);
 
-    // ==========================================
-    // 👇 यहाँ Audit Log दर्ज करें
-    // ==========================================
     auditLog({
       req,
       action: "CREATE",
       resource: "Teacher",
       resourceId: teacher._id,
     });
-    // ==========================================
 
-    const apiResponse = require("../utils/ApiResponse");
-    apiResponse.created(res, "Teacher created successfully", teacher);
+    // 🧹 CACHE INVALIDATION: Clear dashboard cache on new teacher creation
+    await redisService.delete(redisKeys.dashboardStats());
+
+    ApiResponse.created(res, "Teacher created successfully", teacher);
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -36,16 +37,12 @@ exports.createTeacher = async (req, res) => {
   }
 };
 
-const asyncHandler = require("../middleware/async.Handler");
-
 exports.getTeachers = asyncHandler(async (req, res) => {
   const teachers = await Teacher.find();
 
   ApiResponse.success(
     res,
-
     "Teachers fetched successfully",
-
     teachers
   );
 });
@@ -75,30 +72,23 @@ exports.getTeacherById = async (req, res) => {
 
 exports.getAllTeachers = async (req, res) => {
   try {
-    // 1. Query se page aur limit nikaalein (Default: page 1, limit 10)
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-
-    // Skip calculate karein (Maan lo page 2 hai, toh pehle 10 records skip honge)
     const skip = (page - 1) * limit;
-
-    // 2. Sorting ka logic (Jo pehle kiya tha)
     const sort = req.query.sort || "-createdAt";
 
     const totalRecords = await Teacher.countDocuments();
     const totalPages = Math.ceil(totalRecords / limit);
 
-    // 4. Database se limited aur sorted data nikalna
     const teachers = await Teacher.find().sort(sort).skip(skip).limit(limit);
 
-    // 5. Sahi format mein response bhejna (Jaisa aapko chahiye)
     res.json({
       success: true,
       page,
       limit,
       totalRecords,
       totalPages,
-      teachers, // Isme aapka saara data array ke roop mein chala jayega
+      teachers,
     });
   } catch (error) {
     res.status(500).json({
@@ -110,7 +100,6 @@ exports.getAllTeachers = async (req, res) => {
 
 exports.updateTeacher = async (req, res) => {
   try {
-    // 1. Pehle database se bina update kiye teacher ka data nikaalein
     let teacher = await Teacher.findById(req.params.id);
 
     if (!teacher) {
@@ -120,32 +109,27 @@ exports.updateTeacher = async (req, res) => {
       });
     }
 
-    // 2. [NEW LOGIC] Agar nayi photo aayi hai aur purani pehle se hai, toh purani delete karein
     if (req.file && teacher.photo) {
       await fs.remove(teacher.photo);
     }
 
-    // 3. Form se aaya hua baaki data body se lekar update karein
     Object.assign(teacher, req.body);
 
-    // 4. Agar nayi photo upload hui hai, toh uska path set karein
     if (req.file) {
       teacher.photo = req.file.path;
     }
 
-    // 5. Badlaav ko database mein save karein
     await teacher.save();
 
-    // ==========================================
-    // 👇 यहाँ पर Audit Log दर्ज करें 👇
-    // ==========================================
     auditLog({
       req,
       action: "UPDATE",
       resource: "Teacher",
       resourceId: teacher._id,
     });
-    // ==========================================
+
+    // 🧹 CACHE INVALIDATION: Clear dashboard cache on teacher update
+    await redisService.delete(redisKeys.dashboardStats());
 
     res.json({
       success: true,
@@ -171,16 +155,15 @@ exports.deleteTeacher = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // 👇 यहाँ पर Audit Log दर्ज करें 👇
-    // ==========================================
     auditLog({
       req,
       action: "DELETE",
       resource: "Teacher",
-      resourceId: teacher._id, // या req.params.id
+      resourceId: teacher._id,
     });
-    // ==========================================
+
+    // 🧹 CACHE INVALIDATION: Clear dashboard cache on teacher delete
+    await redisService.delete(redisKeys.dashboardStats());
 
     res.json({
       success: true,
@@ -201,26 +184,9 @@ exports.searchTeachers = asyncHandler(async (req, res) => {
 
   if (keyword) {
     filter.$or = [
-      {
-        firstName: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-
-      {
-        lastName: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-
-      {
-        employeeId: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
+      { firstName: { $regex: keyword, $options: "i" } },
+      { lastName: { $regex: keyword, $options: "i" } },
+      { employeeId: { $regex: keyword, $options: "i" } },
     ];
   }
 
@@ -236,24 +202,18 @@ exports.searchTeachers = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-
     total: teachers.length,
-
     teachers,
   });
 });
 
-// Teachers ko Excel mein export karne ka function
 exports.exportTeachersToExcel = async (req, res) => {
   try {
-    // 1. Database se saare teachers ka data fetch karna
     const teachers = await Teacher.find().sort("-createdAt");
 
-    // 2. Nayi Excel Workbook banana
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Teachers");
 
-    // 3. Columns set karna
     worksheet.columns = [
       { header: "ID", key: "_id", width: 30 },
       { header: "Name", key: "name", width: 25 },
@@ -262,7 +222,6 @@ exports.exportTeachersToExcel = async (req, res) => {
       { header: "Created At", key: "createdAt", width: 25 },
     ];
 
-    // 4. Rows data insert karna
     teachers.forEach((teacher) => {
       worksheet.addRow({
         _id: teacher._id.toString(),
@@ -273,18 +232,14 @@ exports.exportTeachersToExcel = async (req, res) => {
       });
     });
 
-    // Header row ko bold styling dena
     worksheet.getRow(1).font = { bold: true };
 
-    // 5. Response headers set karna taaki file browser me automatic download ho sake
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    // 🔹 Yahan file ka naam teachers.xlsx rakha hai jaisa image me manga hai
     res.setHeader("Content-Disposition", "attachment; filename=teachers.xlsx");
 
-    // Excel file response stream me write karna
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {

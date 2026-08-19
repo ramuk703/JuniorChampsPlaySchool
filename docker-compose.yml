@@ -1,0 +1,58 @@
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: juniorchamps-backend
+
+    ports:
+      - "5000:5000"
+
+    env_file:
+      - ./backend/.env
+
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    networks:
+      - juniorchamps-network
+
+  redis:
+    image: redis:7-alpine
+
+    container_name: juniorchamps-redis
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    command: redis-server --appendonly yes
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+    networks:
+      - juniorchamps-network
+
+networks:
+  juniorchamps-network:
+    driver: bridge
+
+volumes:
+  redis-data:

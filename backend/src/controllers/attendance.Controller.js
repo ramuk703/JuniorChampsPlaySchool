@@ -2,6 +2,10 @@ const Attendance = require("../models/User"); // Model path confirm kar lijiyega
 const ExcelJS = require("exceljs");
 const auditLog = require("../utils/auditLog"); // 👈 Audit Log Import Kiya
 
+// 🔴 Redis Imports for Cache Invalidation
+const redisService = require("../services/redis.service");
+const redisKeys = require("../constants/redisKeys");
+
 // 1. Mark Attendance
 const markAttendance = async (req, res) => {
   try {
@@ -21,6 +25,9 @@ const markAttendance = async (req, res) => {
       },
     });
     // ==========================================
+
+    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on attendance mark
+    await redisService.delete(redisKeys.dashboardStats());
 
     res
       .status(200)
@@ -74,6 +81,9 @@ const bulkAttendance = async (req, res) => {
       },
     });
     // ==========================================
+
+    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on bulk attendance submit
+    await redisService.delete(redisKeys.dashboardStats());
 
     res.status(200).json({ success: true });
   } catch (error) {
