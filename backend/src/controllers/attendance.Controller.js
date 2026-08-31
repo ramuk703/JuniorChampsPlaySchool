@@ -1,15 +1,16 @@
 const Attendance = require("../models/User"); // Model path confirm kar lijiyega
 const ExcelJS = require("exceljs");
-const auditLog = require("../utils/auditLog"); // 👈 Audit Log Import Kiya
+const auditLog = require("../utils/auditLog");
 
-// 🔴 Redis Imports for Cache Invalidation
-const redisService = require("../services/redis.service");
-const redisKeys = require("../constants/redisKeys");
+// 🟢 NEW: Centralized Invalidation Service Import
+const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
 // 1. Mark Attendance
 const markAttendance = async (req, res) => {
   try {
     const { studentId, date, status } = req.body;
+
+    const targetStudentId = studentId || req.body.student;
 
     // ==========================================
     // 👇 Attendance Save Hone Ke Baad Audit Log
@@ -19,15 +20,15 @@ const markAttendance = async (req, res) => {
       action: "CREATE",
       resource: "Attendance",
       details: {
-        studentId: studentId || req.body.student,
+        studentId: targetStudentId,
         date: date || new Date(),
         status: status,
       },
     });
     // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on attendance mark
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears Attendance, Student & Dashboard stats caches
+    await cacheInvalidationService.attendance(targetStudentId);
 
     res
       .status(200)
@@ -82,8 +83,8 @@ const bulkAttendance = async (req, res) => {
     });
     // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on bulk attendance submit
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears Attendance, Student & Dashboard stats caches
+    await cacheInvalidationService.attendance();
 
     res.status(200).json({ success: true });
   } catch (error) {

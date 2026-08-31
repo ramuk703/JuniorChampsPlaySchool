@@ -1,8 +1,8 @@
 const auditLog = require("../utils/auditLog");
 const Student = require("../models/Student");
-// 🔴 Redis Imports for Cache Invalidation
-const redisService = require("../services/redis.service");
-const redisKeys = require("../constants/redisKeys");
+
+// 🟢 NEW: Centralized Invalidation Service Import
+const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
 exports.createStudent = async (req, res) => {
   try {
@@ -24,8 +24,8 @@ exports.createStudent = async (req, res) => {
       },
     });
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard cache on new student creation
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears both Student & Dashboard stats caches
+    await cacheInvalidationService.student(student._id);
 
     res.status(201).json({
       success: true,
@@ -108,8 +108,8 @@ exports.updateStudent = async (req, res) => {
       resourceId: student._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard cache on student update
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears both Student & Dashboard stats caches
+    await cacheInvalidationService.student(student._id);
 
     res.json(student);
   } catch (err) {
@@ -140,8 +140,8 @@ exports.deleteStudent = async (req, res) => {
       resourceId: studentId,
     });
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard cache on student delete
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears both Student & Dashboard stats caches
+    await cacheInvalidationService.student(studentId);
 
     res.json({
       success: true,

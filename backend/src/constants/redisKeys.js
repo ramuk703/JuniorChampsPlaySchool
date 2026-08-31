@@ -1,15 +1,23 @@
+const PREFIX = "jc";
+
 const redisKeys = {
-  student: (id) => `student:${id}`,
+  student: (id) => `${PREFIX}:student:${String(id).trim()}`,
 
-  teacher: (id) => `teacher:${id}`,
+  teacher: (id) => `${PREFIX}:teacher:${String(id).trim()}`,
 
-  parent: (id) => `parent:${id}`,
+  parent: (id) => `${PREFIX}:parent:${String(id).trim()}`,
 
-  dashboardStats: () => "dashboard:stats",
+  dashboardStats: () => `${PREFIX}:dashboard:stats`,
 
-  fee: (id) => `fee:${id}`,
+  fee: (id) => `${PREFIX}:fee:${String(id).trim()}`,
 
-  attendance: (studentId, date) => `attendance:${studentId}:${date}`,
+  attendance: (studentId, date) =>
+    `${PREFIX}:attendance:${String(studentId).trim()}:${date}`,
+
+  otp: (purpose, identifier) =>
+    `${PREFIX}:otp:${purpose}:${String(identifier).toLowerCase().trim()}`,
+
+  schoolSettings: () => `${PREFIX}:school:settings`,
 };
 
-module.exports = redisKeys;
+module.exports = Object.freeze(redisKeys);

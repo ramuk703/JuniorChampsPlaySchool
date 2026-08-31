@@ -5,3 +5,5 @@ coverage/
 uploads/
 dist/
 .vscode/*.log
+.env.*
+!.env.example

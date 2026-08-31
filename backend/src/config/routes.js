@@ -6,6 +6,9 @@ module.exports = (app) => {
   app.use("/api/v1/fees", require("../routes/fee.Routes"));
   app.use("/api/v1/parents", require("../routes/parent.Routes"));
 
+  // 👇 REDIS ROUTE HERE 👇
+  app.use("/api/v1/redis", require("../routes/redis.Routes"));
+
   app.get(
     "/api/v1/dashboard/stats",
     require("../controllers/dashboard.Controller").getDashboardStats

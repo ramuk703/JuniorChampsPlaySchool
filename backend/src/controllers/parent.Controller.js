@@ -6,9 +6,8 @@ const Student = require("../models/Student");
 const Attendance = require("../models/Attendance");
 const FeePayment = require("../models/FeePayment");
 
-// 🔴 Redis Imports for Cache Invalidation
-const redisService = require("../services/redis.service");
-const redisKeys = require("../constants/redisKeys");
+// 🟢 NEW: Centralized Invalidation Service Import
+const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
 // 1. Register Parent (Create Event)
 exports.registerParent = async (req, res) => {
@@ -26,8 +25,8 @@ exports.registerParent = async (req, res) => {
     });
     // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on new parent creation
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears Parent & Dashboard stats caches
+    await cacheInvalidationService.parent(parent._id);
 
     res.status(201).json({
       success: true,

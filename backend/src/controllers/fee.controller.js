@@ -1,8 +1,8 @@
 const auditLog = require("../utils/auditLog");
 const FeePayment = require("../models/FeePayment");
-// 🔴 Redis Imports for Cache Invalidation
-const redisService = require("../services/redis.service");
-const redisKeys = require("../constants/redisKeys");
+
+// 🟢 NEW: Centralized Invalidation Service Import
+const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
 // 1. Generate Fee (Fee Create Event)
 exports.generateFee = async (req, res) => {
@@ -30,8 +30,8 @@ exports.generateFee = async (req, res) => {
     });
     // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on fee generation
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears Fee & Dashboard stats caches
+    await cacheInvalidationService.fee(payment._id);
 
     res.status(201).json({
       success: true,
@@ -85,7 +85,7 @@ exports.markPaid = async (req, res) => {
     // ==========================================
     auditLog({
       req,
-      action: "PAYMENT_STATUS_UPDATE", // 👈 स्टेटस अपडेट के लिए सही Action
+      action: "PAYMENT_STATUS_UPDATE",
       resource: "FeePayment",
       resourceId: payment._id,
       details: {
@@ -96,8 +96,8 @@ exports.markPaid = async (req, res) => {
     });
     // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard stats cache on payment status update
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears Fee & Dashboard stats caches
+    await cacheInvalidationService.fee(payment._id);
 
     res.json({
       success: true,

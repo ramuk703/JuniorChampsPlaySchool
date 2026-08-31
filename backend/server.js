@@ -7,7 +7,8 @@ const connectDB = require("./src/config/db");
 const logger = require("./src/config/logger");
 const gracefulShutdown = require("./src/config/shutdown");
 
-const PORT = process.process?.env?.PORT || 5000;
+// Fix 1: Typo fixed (process.process -> process.env)
+const PORT = process.env.PORT || 5000;
 
 let server;
 
@@ -27,12 +28,14 @@ process.on("unhandledRejection", (reason) => {
 
 const startServer = async () => {
   try {
-    await connectDB();
-    await connectRedis();
-
-    server = app.listen(PORT, () => {
+    // Fix 2: HTTP Server ko pehle start karo taaki healthcheck fail na ho
+    server = app.listen(PORT, "0.0.0.0", () => {
       logger.info("Server running on port " + PORT);
     });
+
+    // Connections bad me establish karo
+    await connectDB();
+    await connectRedis();
   } catch (error) {
     logger.error("Server startup failed: " + (error.stack || error.message));
     process.exit(1);

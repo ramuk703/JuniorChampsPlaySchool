@@ -3,9 +3,9 @@ const Teacher = require("../models/Teacher");
 const ApiResponse = require("../utils/ApiResponse");
 const fs = require("fs-extra");
 const ExcelJS = require("exceljs");
-// 🔴 Redis Imports for Cache Invalidation
-const redisService = require("../services/redis.service");
-const redisKeys = require("../constants/redisKeys");
+
+// 🟢 NEW: Centralized Invalidation Service Import
+const cacheInvalidationService = require("../services/cacheInvalidation.service");
 const asyncHandler = require("../middleware/async.Handler");
 
 exports.createTeacher = async (req, res) => {
@@ -25,8 +25,8 @@ exports.createTeacher = async (req, res) => {
       resourceId: teacher._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard cache on new teacher creation
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears both Teacher & Dashboard stats caches
+    await cacheInvalidationService.teacher(teacher._id);
 
     ApiResponse.created(res, "Teacher created successfully", teacher);
   } catch (err) {
@@ -40,11 +40,7 @@ exports.createTeacher = async (req, res) => {
 exports.getTeachers = asyncHandler(async (req, res) => {
   const teachers = await Teacher.find();
 
-  ApiResponse.success(
-    res,
-    "Teachers fetched successfully",
-    teachers
-  );
+  ApiResponse.success(res, "Teachers fetched successfully", teachers);
 });
 
 exports.getTeacherById = async (req, res) => {
@@ -128,8 +124,8 @@ exports.updateTeacher = async (req, res) => {
       resourceId: teacher._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard cache on teacher update
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears both Teacher & Dashboard stats caches
+    await cacheInvalidationService.teacher(teacher._id);
 
     res.json({
       success: true,
@@ -162,8 +158,8 @@ exports.deleteTeacher = async (req, res) => {
       resourceId: teacher._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clear dashboard cache on teacher delete
-    await redisService.delete(redisKeys.dashboardStats());
+    // 🧹 CACHE INVALIDATION: Clears both Teacher & Dashboard stats caches
+    await cacheInvalidationService.teacher(teacher._id);
 
     res.json({
       success: true,

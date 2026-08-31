@@ -11,7 +11,7 @@ services:
       - "5000:5000"
 
     env_file:
-      - ./backend/.env
+      - ./backend/.env.docker
 
     dns:
       - 8.8.8.8
@@ -20,6 +20,19 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const req = require('http').get('http://127.0.0.1:5000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
     restart: unless-stopped
 
@@ -31,16 +44,29 @@ services:
 
     container_name: juniorchamps-redis
 
-    ports:
-      - "6379:6379"
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
 
     volumes:
       - redis-data:/data
 
-    command: redis-server --appendonly yes
-
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${REDIS_PASSWORD}",
+          "ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
