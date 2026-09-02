@@ -42,7 +42,7 @@ exports.createTeacher = async (req, res) => {
 
 // 1. Basic List (Optimized Query)
 exports.getTeachers = asyncHandler(async (req, res) => {
-  const teachers = await Teacher.find()
+  const teachers = await Teacher.find({ deletedAt: null })
     .select(TEACHER_SELECT_FIELDS)
     .sort({ createdAt: -1 })
     .lean();
@@ -50,10 +50,13 @@ exports.getTeachers = asyncHandler(async (req, res) => {
   ApiResponse.success(res, "Teachers fetched successfully", teachers);
 });
 
-// 2. Teacher By ID (Maintained as standard Mongoose Document)
+// 2. Teacher By ID (Fixed to exclude soft-deleted records)
 exports.getTeacherById = async (req, res) => {
   try {
-    const teacher = await Teacher.findById(req.params.id);
+    const teacher = await Teacher.findOne({
+      _id: req.params.id,
+      deletedAt: null,
+    });
 
     if (!teacher) {
       return res.status(404).json({
@@ -108,13 +111,13 @@ exports.getAllTeachers = async (req, res) => {
     };
 
     const [teachers, totalRecords] = await Promise.all([
-      Teacher.find()
+      Teacher.find({ deletedAt: null })
         .select(TEACHER_SELECT_FIELDS)
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean(),
-      Teacher.countDocuments(),
+      Teacher.countDocuments({ deletedAt: null }),
     ]);
 
     const totalPages = Math.ceil(totalRecords / limit);
@@ -136,10 +139,14 @@ exports.getAllTeachers = async (req, res) => {
   }
 };
 
-// 4. Update Teacher (Maintained as standard Mongoose Document)
+// 4. Update Teacher (Hardened against soft-deleted records)
 exports.updateTeacher = async (req, res) => {
   try {
-    const existingTeacher = await Teacher.findById(req.params.id);
+    // 🛡️ Filter lookup to only active teachers
+    const existingTeacher = await Teacher.findOne({
+      _id: req.params.id,
+      deletedAt: null,
+    });
 
     if (!existingTeacher) {
       return res.status(404).json({
@@ -157,11 +164,18 @@ exports.updateTeacher = async (req, res) => {
       updateData.photo = req.file.path;
     }
 
-    // 🔒 runValidators: true guarantees schema rules apply on UPDATE operations
-    const teacher = await Teacher.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    // 🛡️ Hardened update query
+    const teacher = await Teacher.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        deletedAt: null,
+      },
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     auditLog({
       req,
@@ -186,10 +200,23 @@ exports.updateTeacher = async (req, res) => {
   }
 };
 
-// 5. Delete Teacher (Maintained as standard Mongoose Document)
+// 5. Delete Teacher (Soft Delete Implementation)
 exports.deleteTeacher = async (req, res) => {
   try {
-    const teacher = await Teacher.findByIdAndDelete(req.params.id);
+    const teacher = await Teacher.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        deletedAt: null,
+      },
+      {
+        $set: {
+          deletedAt: new Date(),
+        },
+      },
+      {
+        new: true,
+      }
+    );
 
     if (!teacher) {
       return res.status(404).json({
@@ -220,10 +247,100 @@ exports.deleteTeacher = async (req, res) => {
   }
 };
 
+exports.restoreTeacher = async (req, res) => {
+  try {
+    const teacher = await Teacher.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        deletedAt: { $ne: null },
+      },
+      {
+        $set: {
+          deletedAt: null,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: "Deleted teacher not found",
+      });
+    }
+
+    auditLog({
+      req,
+      action: "RESTORE",
+      resource: "Teacher",
+      resourceId: teacher._id,
+    });
+
+    await cacheInvalidationService.teacher(teacher._id);
+
+    res.json({
+      success: true,
+      message: "Teacher restored successfully",
+      teacher,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.getDeletedTeachers = async (req, res) => {
+  try {
+    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number.parseInt(req.query.limit, 10) || 10, 1),
+      100
+    );
+    const skip = (page - 1) * limit;
+
+    const [teachers, total] = await Promise.all([
+      Teacher.find({
+        deletedAt: { $ne: null },
+      })
+        .select(
+          "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary status deletedAt createdAt"
+        )
+        .sort({ deletedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Teacher.countDocuments({
+        deletedAt: { $ne: null },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      teachers,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 exports.searchTeachers = asyncHandler(async (req, res) => {
   const { keyword, status, qualification } = req.query;
 
-  const filter = {};
+  const filter = {
+    deletedAt: null,
+  };
 
   if (keyword) {
     filter.$or = [
@@ -255,7 +372,7 @@ exports.searchTeachers = asyncHandler(async (req, res) => {
 
 exports.exportTeachersToExcel = async (req, res) => {
   try {
-    const teachers = await Teacher.find().sort("-createdAt");
+    const teachers = await Teacher.find({ deletedAt: null }).sort("-createdAt");
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Teachers");
@@ -300,6 +417,8 @@ module.exports = {
   getAllTeachers: exports.getAllTeachers,
   updateTeacher: exports.updateTeacher,
   deleteTeacher: exports.deleteTeacher,
+  restoreTeacher: exports.restoreTeacher,
+  getDeletedTeachers: exports.getDeletedTeachers,
   searchTeachers: exports.searchTeachers,
   exportTeachersToExcel: exports.exportTeachersToExcel,
 };

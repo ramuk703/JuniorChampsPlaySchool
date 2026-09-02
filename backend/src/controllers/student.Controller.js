@@ -47,7 +47,7 @@ exports.getStudents = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
 
-    const students = await Student.find()
+    const students = await Student.find({ deletedAt: null })
       .select(
         "_id admissionNo firstName lastName gender className section mobile status photo createdAt"
       )
@@ -56,7 +56,7 @@ exports.getStudents = async (req, res, next) => {
       .limit(limit)
       .lean();
 
-    const total = await Student.countDocuments();
+    const total = await Student.countDocuments({ deletedAt: null });
 
     res.json({
       success: true,
@@ -84,6 +84,7 @@ exports.searchStudent = async (req, res, next) => {
     }
 
     const students = await Student.find({
+      deletedAt: null,
       $or: [
         { firstName: { $regex: keyword, $options: "i" } },
         { lastName: { $regex: keyword, $options: "i" } },
@@ -104,10 +105,18 @@ exports.searchStudent = async (req, res, next) => {
 
 exports.updateStudent = async (req, res, next) => {
   try {
-    const student = await Student.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    // 🛡️ Hardened: Only update active students (deletedAt: null)
+    const student = await Student.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        deletedAt: null,
+      },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!student) {
       return res.status(404).json({
@@ -137,7 +146,21 @@ exports.deleteStudent = async (req, res, next) => {
   try {
     const studentId = req.params.id;
 
-    const student = await Student.findByIdAndDelete(studentId);
+    // 🛡️ Soft Delete Implementation
+    const student = await Student.findOneAndUpdate(
+      {
+        _id: studentId,
+        deletedAt: null,
+      },
+      {
+        $set: {
+          deletedAt: new Date(),
+        },
+      },
+      {
+        new: true,
+      }
+    );
 
     if (!student) {
       return res.status(404).json({
@@ -160,6 +183,92 @@ exports.deleteStudent = async (req, res, next) => {
     res.json({
       success: true,
       message: "Student deleted successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.restoreStudent = async (req, res, next) => {
+  try {
+    const studentId = req.params.id;
+
+    const student = await Student.findOneAndUpdate(
+      {
+        _id: studentId,
+        deletedAt: { $ne: null },
+      },
+      {
+        $set: {
+          deletedAt: null,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Deleted student not found",
+      });
+    }
+
+    auditLog({
+      req,
+      action: "RESTORE",
+      resource: "Student",
+      resourceId: studentId,
+    });
+
+    if (cacheInvalidationService && cacheInvalidationService.student) {
+      await cacheInvalidationService.student(studentId);
+    }
+
+    res.json({
+      success: true,
+      message: "Student restored successfully",
+      student,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getDeletedStudents = async (req, res, next) => {
+  try {
+    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number.parseInt(req.query.limit, 10) || 10, 1),
+      100
+    );
+    const skip = (page - 1) * limit;
+
+    const [students, total] = await Promise.all([
+      Student.find({
+        deletedAt: { $ne: null },
+      })
+        .select(
+          "_id admissionNo firstName lastName gender className section mobile status deletedAt createdAt"
+        )
+        .sort({ deletedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Student.countDocuments({
+        deletedAt: { $ne: null },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      students,
     });
   } catch (err) {
     next(err);
