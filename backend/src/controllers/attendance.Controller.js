@@ -1,20 +1,22 @@
-const Attendance = require("../models/User"); // Model path confirm kar lijiyega
+const Attendance = require("../models/Attendance");
 const ExcelJS = require("exceljs");
 const auditLog = require("../utils/auditLog");
-
-// 🟢 NEW: Centralized Invalidation Service Import
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
 // 1. Mark Attendance
 const markAttendance = async (req, res) => {
   try {
-    const { studentId, date, status } = req.body;
+    const { studentId, student, date, status, className } = req.body;
+    const targetStudentId = studentId || student;
 
-    const targetStudentId = studentId || req.body.student;
+    const newAttendance = await Attendance.create({
+      student: targetStudentId,
+      className: className || "Nursery",
+      date: date || new Date(),
+      status: status,
+      markedBy: req.user?._id,
+    });
 
-    // ==========================================
-    // 👇 Attendance Save Hone Ke Baad Audit Log
-    // ==========================================
     auditLog({
       req,
       action: "CREATE",
@@ -25,16 +27,25 @@ const markAttendance = async (req, res) => {
         status: status,
       },
     });
-    // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clears Attendance, Student & Dashboard stats caches
     await cacheInvalidationService.attendance(targetStudentId);
 
-    res
-      .status(200)
-      .json({ success: true, message: "Attendance marked successfully" });
+    res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully",
+      data: newAttendance,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    // Handling Duplicate Key Error -> Production Standard (409 Conflict)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Attendance for this student on this date has already been marked",
+      });
+    }
+
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -68,9 +79,6 @@ const monthlyAttendance = async (req, res) => {
 // 5. Bulk Attendance
 const bulkAttendance = async (req, res) => {
   try {
-    // ==========================================
-    // 👇 Bulk Attendance Submit Hone Par Audit Log
-    // ==========================================
     auditLog({
       req,
       action: "BULK_CREATE",
@@ -81,9 +89,7 @@ const bulkAttendance = async (req, res) => {
         totalStudents: req.body.attendanceData?.length || 0,
       },
     });
-    // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clears Attendance, Student & Dashboard stats caches
     await cacheInvalidationService.attendance();
 
     res.status(200).json({ success: true });
@@ -109,7 +115,7 @@ const attendancePercentage = async (req, res) => {
   }
 };
 
-// 7. Get Attendance Calendar
+// 7. Get Attendance Calendar (Optimized Query)
 const getAttendanceCalendar = async (req, res) => {
   try {
     const studentId = req.params.id;
@@ -127,10 +133,12 @@ const getAttendanceCalendar = async (req, res) => {
     const attendanceRecords = await Attendance.find({
       student: studentId,
       date: { $gte: startOfMonth, $lte: endOfMonth },
-    }).select("date status");
+    })
+      .select("_id date status")
+      .lean();
 
     const formattedAttendance = attendanceRecords.map((record) => ({
-      date: record.date.toISOString().split("T")[0],
+      date: new Date(record.date).toISOString().split("T")[0],
       status: record.status,
     }));
 
@@ -185,6 +193,7 @@ const attendanceStats = async (req, res) => {
   }
 };
 
+// 9. Get Parent Attendance View (Optimized Query)
 const getParentAttendanceView = async (req, res) => {
   try {
     const studentId = req.user.studentId || req.user.child;
@@ -220,10 +229,12 @@ const getParentAttendanceView = async (req, res) => {
     const currentMonthRecords = await Attendance.find({
       student: studentId,
       date: { $gte: startOfMonth, $lte: endOfMonth },
-    }).select("date status");
+    })
+      .select("_id date status")
+      .lean();
 
     const formattedThisMonth = currentMonthRecords.map((record) => ({
-      date: record.date.toISOString().split("T")[0],
+      date: new Date(record.date).toISOString().split("T")[0],
       status: record.status,
     }));
 
@@ -259,7 +270,9 @@ const exportAttendanceToExcel = async (req, res) => {
 
     attendanceRecords.forEach((record) => {
       worksheet.addRow({
-        date: record.date ? record.date.toISOString().split("T")[0] : "N/A",
+        date: record.date
+          ? new Date(record.date).toISOString().split("T")[0]
+          : "N/A",
         studentName: record.student?.name || "Rahul Kumar",
         status: record.status,
       });

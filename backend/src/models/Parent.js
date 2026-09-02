@@ -6,11 +6,17 @@ const parentSchema = new mongoose.Schema(
     fatherName: {
       type: String,
       required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 100,
     },
 
     motherName: {
       type: String,
       required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 100,
     },
 
     email: {
@@ -18,11 +24,19 @@ const parentSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
+      maxlength: 254,
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please fill a valid email address",
+      ],
     },
 
     mobile: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 10,
+      match: [/^\d{10}$/, "Please fill a valid 10-digit mobile number"],
     },
 
     password: {

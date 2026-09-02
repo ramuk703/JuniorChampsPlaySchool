@@ -11,11 +11,15 @@ const feePaymentSchema = new mongoose.Schema(
     month: {
       type: Number,
       required: true,
+      min: 1,
+      max: 12,
     },
 
     year: {
       type: Number,
       required: true,
+      min: 2000,
+      max: 2100,
     },
 
     feeType: {
@@ -27,21 +31,25 @@ const feePaymentSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     discount: {
       type: Number,
+      min: 0,
       default: 0,
     },
 
     lateFee: {
       type: Number,
+      min: 0,
       default: 0,
     },
 
     totalAmount: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     paymentMethod: {
@@ -58,7 +66,7 @@ const feePaymentSchema = new mongoose.Schema(
 
     receiptNumber: {
       type: String,
-      unique: true,
+      trim: true,
     },
 
     paidBy: {
@@ -80,6 +88,12 @@ const feePaymentSchema = new mongoose.Schema(
 
     paymentDate: {
       type: Date,
+      validate: {
+        validator: function (value) {
+          return value <= new Date();
+        },
+        message: "Payment date cannot be in the future.",
+      },
     },
 
     remarks: {
@@ -91,5 +105,34 @@ const feePaymentSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+feePaymentSchema.index(
+  { receiptNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      receiptNumber: { $type: "string" },
+    },
+  }
+);
+
+// Compound Unique Index: Prevents duplicate Monthly fee generation for the same student, month, and year
+feePaymentSchema.index(
+  {
+    student: 1,
+    month: 1,
+    year: 1,
+    feeType: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      feeType: "Monthly",
+    },
+  }
+);
+
+feePaymentSchema.index({ createdAt: -1 });
+feePaymentSchema.index({ status: 1 });
 
 module.exports = mongoose.model("FeePayment", feePaymentSchema);

@@ -13,12 +13,16 @@ const teacherSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: 2,
+      maxlength: 50,
     },
 
     lastName: {
       type: String,
       required: true,
       trim: true,
+      minlength: 2,
+      maxlength: 50,
     },
 
     gender: {
@@ -32,11 +36,18 @@ const teacherSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
+      maxlength: 254,
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please fill a valid email address",
+      ],
     },
 
     mobile: {
       type: String,
       required: true,
+      trim: true,
+      match: [/^\d{10}$/, "Please fill a valid 10-digit mobile number"],
     },
 
     qualification: {
@@ -46,6 +57,8 @@ const teacherSchema = new mongoose.Schema(
 
     experience: {
       type: Number,
+      min: 0,
+      max: 60,
       default: 0,
     },
 
@@ -66,6 +79,7 @@ const teacherSchema = new mongoose.Schema(
 
     salary: {
       type: Number,
+      min: 0,
       default: 0,
     },
 
@@ -84,5 +98,5 @@ const teacherSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
+teacherSchema.index({ createdAt: -1 });
 module.exports = mongoose.model("Teacher", teacherSchema);

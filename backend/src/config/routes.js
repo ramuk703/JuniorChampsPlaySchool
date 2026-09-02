@@ -5,6 +5,10 @@ module.exports = (app) => {
   app.use("/api/v1/attendance", require("../routes/attendance.Routes"));
   app.use("/api/v1/fees", require("../routes/fee.Routes"));
   app.use("/api/v1/parents", require("../routes/parent.Routes"));
+  app.use(
+    "/api/v1/teacher-attendance",
+    require("../routes/teacherAttendance.Routes")
+  );
 
   // 👇 REDIS ROUTE HERE 👇
   app.use("/api/v1/redis", require("../routes/redis.Routes"));

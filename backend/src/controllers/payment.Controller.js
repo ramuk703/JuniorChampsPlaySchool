@@ -1,72 +1,152 @@
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
-const Student = require("../../models/Student");
-const FeePayment = require("../../models/FeePayment");
+const Student = require("../models/Student");
+const FeePayment = require("../models/FeePayment");
+const withTransaction = require("../utils/withTransaction");
 
 exports.createOrder = async (req, res) => {
-  const options = {
-    amount: req.body.amount * 100,
-    currency: "INR",
-    receipt: "JCPS-" + Date.now(),
-  };
+  try {
+    const options = {
+      amount: req.body.amount * 100,
+      currency: "INR",
+      receipt: "JCPS-" + Date.now(),
+    };
 
-  const order = await razorpay.orders.create(options);
+    const order = await razorpay.orders.create(options);
 
-  res.json({
-    success: true,
-    order,
-  });
+    return res.json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 exports.verifyPayment = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-    req.body;
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body;
 
-  const generatedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_SECRET)
-    .update(razorpay_order_id + "|" + razorpay_payment_id)
-    .digest("hex");
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+      .update(razorpay_order_id + "|" + razorpay_payment_id)
+      .digest("hex");
 
-  if (generatedSignature !== razorpay_signature) {
-    return res.status(400).json({
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Payment",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Payment Verified",
+    });
+  } catch (error) {
+    return res.status(500).json({
       success: false,
-      message: "Invalid Payment",
+      message: error.message,
     });
   }
-
-  res.json({
-    success: true,
-    message: "Payment Verified",
-  });
 };
 
-exports.generateMonthlyFees = async (req, res) => {
-  const students = await Student.find();
-  const dueDate = 10;
-  const today = new Date().getDate();
+exports.generateMonthlyFees = async (req, res, next) => {
+  try {
+    const currentDate = new Date();
+    const month = currentDate.getMonth() + 1;
+    const year = currentDate.getFullYear();
 
-  let lateFee = 0;
-  if (today > dueDate) {
-    lateFee = 100;
-  }
+    const dueDate = 10;
+    const lateFee = currentDate.getDate() > dueDate ? 100 : 0;
 
-  const baseAmount = 600;
-  const totalAmount = baseAmount + lateFee; // यहाँ टोटल अमाउंट कैलकुलेट हो रहा है
+    const baseAmount = 600;
+    const totalAmount = baseAmount + lateFee;
 
-  for (const student of students) {
-    await FeePayment.create({
-      student: student._id,
-      month: new Date().getMonth() + 1,
-      year: new Date().getFullYear(),
-      feeType: "Monthly",
-      amount: baseAmount, // 600 की जगह वेरिएबल का नाम रखा
-      totalAmount: totalAmount, // यहाँ अब totalAmount वेरिएबल का सही इस्तेमाल हो रहा है
-      receiptNumber: "AUTO-" + Date.now() + student._id,
+    const result = await withTransaction(async (session) => {
+      // 1. Only active students are eligible for monthly fees
+      const students = await Student.find({
+        status: "Active",
+      })
+        .select("_id")
+        .session(session)
+        .lean();
+
+      if (students.length === 0) {
+        return {
+          generated: 0,
+          skipped: 0,
+        };
+      }
+
+      const studentIds = students.map((student) => student._id);
+
+      // 2. Find students who already have this month's fee
+      const existingFees = await FeePayment.find({
+        student: { $in: studentIds },
+        month,
+        year,
+        feeType: "Monthly",
+      })
+        .select("student")
+        .session(session)
+        .lean();
+
+      const existingStudentIds = new Set(
+        existingFees.map((fee) => fee.student.toString())
+      );
+
+      // 3. Only create fees for students who don't already have one
+      const studentsToBill = students.filter(
+        (student) => !existingStudentIds.has(student._id.toString())
+      );
+
+      if (studentsToBill.length === 0) {
+        return {
+          generated: 0,
+          skipped: students.length,
+        };
+      }
+
+      // 4. Prepare new fee documents
+      const feeDocuments = studentsToBill.map((student) => ({
+        student: student._id,
+        month,
+        year,
+        feeType: "Monthly",
+        amount: baseAmount,
+        discount: 0,
+        lateFee,
+        totalAmount,
+        status: "Pending",
+        receiptNumber: `AUTO-${year}-${month}-${student._id}`,
+      }));
+
+      // 5. Insert all new fees atomically
+      const createdFees = await FeePayment.insertMany(feeDocuments, {
+        session,
+        ordered: true,
+      });
+
+      return {
+        generated: createdFees.length,
+        skipped: existingFees.length,
+      };
     });
-  }
 
-  res.json({
-    success: true,
-    message: "Monthly fees generated",
-  });
+    return res.status(201).json({
+      success: true,
+      message: "Monthly fee generation completed",
+      month,
+      year,
+      generated: result.generated,
+      skipped: result.skipped,
+    });
+  } catch (error) {
+    next(error);
+  }
 };

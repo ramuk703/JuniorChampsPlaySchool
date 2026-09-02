@@ -1,10 +1,10 @@
 const auditLog = require("../utils/auditLog");
 const Student = require("../models/Student");
 
-// 🟢 NEW: Centralized Invalidation Service Import
+// 🟢 Centralized Invalidation Service Import
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
-exports.createStudent = async (req, res) => {
+exports.createStudent = async (req, res, next) => {
   try {
     const studentData = req.body;
 
@@ -20,12 +20,14 @@ exports.createStudent = async (req, res) => {
       resource: "Student",
       resourceId: student._id,
       details: {
-        admissionNumber: student.admissionNumber,
+        admissionNumber: student.admissionNo,
       },
     });
 
-    // 🧹 CACHE INVALIDATION: Clears both Student & Dashboard stats caches
-    await cacheInvalidationService.student(student._id);
+    // 🧹 CACHE INVALIDATION
+    if (cacheInvalidationService && cacheInvalidationService.student) {
+      await cacheInvalidationService.student(student._id);
+    }
 
     res.status(201).json({
       success: true,
@@ -33,43 +35,53 @@ exports.createStudent = async (req, res) => {
       student,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    next(err); // 👈 Critical: Ye Mongoose error ko central error middleware tak bhejega
   }
 };
 
-exports.getStudents = async (req, res) => {
+exports.getStudents = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // 🛡️ Safe Pagination Sanitization Rules
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const requestedLimit = Number.parseInt(req.query.limit, 10) || 10;
+    const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
 
     const students = await Student.find()
+      .select(
+        "_id admissionNo firstName lastName gender className section mobile status photo createdAt"
+      )
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .sort({ createdAt: -1 });
+      .lean();
 
     const total = await Student.countDocuments();
 
     res.json({
       success: true,
       page,
+      limit,
       total,
       students,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    next(err);
   }
 };
 
-exports.searchStudent = async (req, res) => {
+exports.searchStudent = async (req, res, next) => {
   try {
-    const keyword = req.query.q;
+    // 🛡️ Search Input Sanitization & Empty Input Guardrail (Step 5.4.14.4)
+    const rawInput = req.query.q || req.query.keyword || "";
+    const keyword = String(rawInput).trim();
+
+    if (!keyword) {
+      return res.status(400).json({
+        success: false,
+        message: "Search keyword is required",
+      });
+    }
 
     const students = await Student.find({
       $or: [
@@ -77,21 +89,24 @@ exports.searchStudent = async (req, res) => {
         { lastName: { $regex: keyword, $options: "i" } },
         { admissionNo: { $regex: keyword, $options: "i" } },
       ],
-    });
+    })
+      .select(
+        "_id admissionNo firstName lastName gender className section mobile status"
+      )
+      .limit(20)
+      .lean();
 
     res.json(students);
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    next(err);
   }
 };
 
-exports.updateStudent = async (req, res) => {
+exports.updateStudent = async (req, res, next) => {
   try {
     const student = await Student.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
+      runValidators: true,
     });
 
     if (!student) {
@@ -108,19 +123,17 @@ exports.updateStudent = async (req, res) => {
       resourceId: student._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clears both Student & Dashboard stats caches
-    await cacheInvalidationService.student(student._id);
+    if (cacheInvalidationService && cacheInvalidationService.student) {
+      await cacheInvalidationService.student(student._id);
+    }
 
     res.json(student);
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    next(err);
   }
 };
 
-exports.deleteStudent = async (req, res) => {
+exports.deleteStudent = async (req, res, next) => {
   try {
     const studentId = req.params.id;
 
@@ -140,17 +153,15 @@ exports.deleteStudent = async (req, res) => {
       resourceId: studentId,
     });
 
-    // 🧹 CACHE INVALIDATION: Clears both Student & Dashboard stats caches
-    await cacheInvalidationService.student(studentId);
+    if (cacheInvalidationService && cacheInvalidationService.student) {
+      await cacheInvalidationService.student(studentId);
+    }
 
     res.json({
       success: true,
-      message: "Student Deleted",
+      message: "Student deleted successfully",
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    next(err);
   }
 };

@@ -13,12 +13,16 @@ const studentSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: 2,
+      maxlength: 50,
     },
 
     lastName: {
       type: String,
       required: true,
       trim: true,
+      minlength: 2,
+      maxlength: 50,
     },
 
     gender: {
@@ -30,15 +34,26 @@ const studentSchema = new mongoose.Schema(
     dob: {
       type: Date,
       required: true,
+      validate: {
+        validator: function (value) {
+          return value < new Date();
+        },
+        message: "Date of birth must be in the past.",
+      },
     },
 
     className: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 50,
     },
 
     section: {
       type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 10,
       default: "A",
     },
 
@@ -55,11 +70,18 @@ const studentSchema = new mongoose.Schema(
     mobile: {
       type: String,
       required: true,
+      trim: true,
+      match: [/^\d{10}$/, "Please fill a valid 10-digit mobile number"],
     },
 
     email: {
       type: String,
       lowercase: true,
+      maxlength: 254,
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please fill a valid email address",
+      ],
     },
 
     address: {
@@ -86,5 +108,6 @@ const studentSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+studentSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Student", studentSchema);

@@ -4,9 +4,12 @@ const ApiResponse = require("../utils/ApiResponse");
 const fs = require("fs-extra");
 const ExcelJS = require("exceljs");
 
-// 🟢 NEW: Centralized Invalidation Service Import
+// 🟢 Centralized Invalidation Service Import
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 const asyncHandler = require("../middleware/async.Handler");
+
+const TEACHER_SELECT_FIELDS =
+  "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary photo status createdAt";
 
 exports.createTeacher = async (req, res) => {
   try {
@@ -37,12 +40,17 @@ exports.createTeacher = async (req, res) => {
   }
 };
 
+// 1. Basic List (Optimized Query)
 exports.getTeachers = asyncHandler(async (req, res) => {
-  const teachers = await Teacher.find();
+  const teachers = await Teacher.find()
+    .select(TEACHER_SELECT_FIELDS)
+    .sort({ createdAt: -1 })
+    .lean();
 
   ApiResponse.success(res, "Teachers fetched successfully", teachers);
 });
 
+// 2. Teacher By ID (Maintained as standard Mongoose Document)
 exports.getTeacherById = async (req, res) => {
   try {
     const teacher = await Teacher.findById(req.params.id);
@@ -66,25 +74,59 @@ exports.getTeacherById = async (req, res) => {
   }
 };
 
+// 3. Paginated List (Optimized Query with Safe Pagination & Protected Sorting - Step 5.4.14)
 exports.getAllTeachers = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // 🛡️ Safe Pagination Sanitization Rules
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const requestedLimit = Number.parseInt(req.query.limit, 10) || 10;
+    const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
-    const sort = req.query.sort || "-createdAt";
 
-    const totalRecords = await Teacher.countDocuments();
+    // 🔒 Sorting Whitelist & Protection Logic
+    const allowedSortFields = [
+      "createdAt",
+      "firstName",
+      "lastName",
+      "employeeId",
+      "joiningDate",
+      "salary",
+    ];
+    const requestedSort = req.query.sort || "-createdAt";
+    const sortField = requestedSort.replace(/^-/, "");
+
+    if (!allowedSortFields.includes(sortField)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sort field",
+      });
+    }
+
+    const sortDirection = requestedSort.startsWith("-") ? -1 : 1;
+    const sort = {
+      [sortField]: sortDirection,
+    };
+
+    const [teachers, totalRecords] = await Promise.all([
+      Teacher.find()
+        .select(TEACHER_SELECT_FIELDS)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Teacher.countDocuments(),
+    ]);
+
     const totalPages = Math.ceil(totalRecords / limit);
-
-    const teachers = await Teacher.find().sort(sort).skip(skip).limit(limit);
 
     res.json({
       success: true,
+      message: "Teachers fetched successfully",
       page,
       limit,
       totalRecords,
       totalPages,
-      teachers,
+      data: teachers,
     });
   } catch (error) {
     res.status(500).json({
@@ -94,28 +136,32 @@ exports.getAllTeachers = async (req, res) => {
   }
 };
 
+// 4. Update Teacher (Maintained as standard Mongoose Document)
 exports.updateTeacher = async (req, res) => {
   try {
-    let teacher = await Teacher.findById(req.params.id);
+    const existingTeacher = await Teacher.findById(req.params.id);
 
-    if (!teacher) {
+    if (!existingTeacher) {
       return res.status(404).json({
         success: false,
         message: "Teacher not found",
       });
     }
 
-    if (req.file && teacher.photo) {
-      await fs.remove(teacher.photo);
-    }
-
-    Object.assign(teacher, req.body);
+    const updateData = { ...req.body };
 
     if (req.file) {
-      teacher.photo = req.file.path;
+      if (existingTeacher.photo) {
+        await fs.remove(existingTeacher.photo);
+      }
+      updateData.photo = req.file.path;
     }
 
-    await teacher.save();
+    // 🔒 runValidators: true guarantees schema rules apply on UPDATE operations
+    const teacher = await Teacher.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     auditLog({
       req,
@@ -140,6 +186,7 @@ exports.updateTeacher = async (req, res) => {
   }
 };
 
+// 5. Delete Teacher (Maintained as standard Mongoose Document)
 exports.deleteTeacher = async (req, res) => {
   try {
     const teacher = await Teacher.findByIdAndDelete(req.params.id);
@@ -194,7 +241,10 @@ exports.searchTeachers = asyncHandler(async (req, res) => {
     filter.qualification = qualification;
   }
 
-  const teachers = await Teacher.find(filter);
+  const teachers = await Teacher.find(filter)
+    .select(TEACHER_SELECT_FIELDS)
+    .limit(20)
+    .lean();
 
   res.json({
     success: true,
@@ -241,4 +291,15 @@ exports.exportTeachersToExcel = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+};
+
+module.exports = {
+  createTeacher: exports.createTeacher,
+  getTeachers: exports.getTeachers,
+  getTeacherById: exports.getTeacherById,
+  getAllTeachers: exports.getAllTeachers,
+  updateTeacher: exports.updateTeacher,
+  deleteTeacher: exports.deleteTeacher,
+  searchTeachers: exports.searchTeachers,
+  exportTeachersToExcel: exports.exportTeachersToExcel,
 };
