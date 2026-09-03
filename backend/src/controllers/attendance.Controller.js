@@ -1,17 +1,49 @@
+const mongoose = require("mongoose");
 const Attendance = require("../models/Attendance");
+const Student = require("../models/Student");
 const ExcelJS = require("exceljs");
 const auditLog = require("../utils/auditLog");
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
-// 1. Mark Attendance
+// 1. Mark Attendance (Hardened)
 const markAttendance = async (req, res) => {
   try {
     const { studentId, student, date, status, className } = req.body;
     const targetStudentId = studentId || student;
 
+    // 1. Check if Student ID is provided (Step 5.6.3-B)
+    if (!targetStudentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Student ID is required",
+      });
+    }
+
+    // 2. Check if ObjectId format is valid (Step 5.6.3-B)
+    if (!mongoose.isValidObjectId(targetStudentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid student ID",
+      });
+    }
+
+    // 3. Check if Student exists and is active (Step 5.6.3-A)
+    const targetStudent = await Student.findOne({
+      _id: targetStudentId,
+      deletedAt: null,
+    }).select("_id className");
+
+    if (!targetStudent) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found or deleted",
+      });
+    }
+
+    // 4. Create Attendance Record
     const newAttendance = await Attendance.create({
-      student: targetStudentId,
-      className: className || "Nursery",
+      student: targetStudent._id,
+      className: className || targetStudent.className,
       date: date || new Date(),
       status: status,
       markedBy: req.user?._id,
@@ -22,13 +54,13 @@ const markAttendance = async (req, res) => {
       action: "CREATE",
       resource: "Attendance",
       details: {
-        studentId: targetStudentId,
+        studentId: targetStudent._id,
         date: date || new Date(),
         status: status,
       },
     });
 
-    await cacheInvalidationService.attendance(targetStudentId);
+    await cacheInvalidationService.attendance(targetStudent._id);
 
     res.status(201).json({
       success: true,
@@ -121,6 +153,20 @@ const getAttendanceCalendar = async (req, res) => {
     const studentId = req.params.id;
     const { month, year } = req.query;
 
+    const student = await Student.findOne({
+      _id: studentId,
+      deletedAt: null,
+    })
+      .select("_id")
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
     if (!month || !year) {
       return res
         .status(400)
@@ -203,6 +249,20 @@ const getParentAttendanceView = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "No student linked to this parent account",
+      });
+    }
+
+    const student = await Student.findOne({
+      _id: studentId,
+      deletedAt: null,
+    })
+      .select("_id")
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
       });
     }
 

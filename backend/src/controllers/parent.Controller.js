@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Parent = require("../models/Parent");
 const auditLog = require("../utils/auditLog");
 const generateToken = require("../utils/generateToken");
@@ -6,26 +7,50 @@ const Student = require("../models/Student");
 const Attendance = require("../models/Attendance");
 const FeePayment = require("../models/FeePayment");
 
-// 🟢 NEW: Centralized Invalidation Service Import
+// 🟢 Centralized Invalidation Service Import
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
 // 1. Register Parent (Create Event)
 exports.registerParent = async (req, res) => {
   try {
-    const parent = await Parent.create(req.body);
+    const { student: studentId } = req.body;
 
-    // ==========================================
-    // 👇 Parent Create hone ke baad Audit Log
-    // ==========================================
+    // 1. Check if ObjectId format is valid (Step 5.6.2-B)
+    if (!mongoose.isValidObjectId(studentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid student ID",
+      });
+    }
+
+    // 2. Check if student exists and is active (Step 5.6.2-A)
+    const student = await Student.findOne({
+      _id: studentId,
+      deletedAt: null,
+    }).select("_id");
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found or deleted",
+      });
+    }
+
+    // 3. Create Parent
+    const parent = await Parent.create({
+      ...req.body,
+      student: student._id,
+    });
+
+    // Audit Log
     auditLog({
       req,
       action: "CREATE",
       resource: "Parent",
       resourceId: parent._id,
     });
-    // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clears Parent & Dashboard stats caches
+    // CACHE INVALIDATION
     await cacheInvalidationService.parent(parent._id);
 
     res.status(201).json({
@@ -82,7 +107,25 @@ exports.dashboard = async (req, res) => {
   try {
     const parent = await Parent.findById(req.user._id);
 
-    const student = await Student.findById(parent.student);
+    // Defensive check if parent doesn't exist (Step 5.6.2-D)
+    if (!parent) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent not found",
+      });
+    }
+
+    const student = await Student.findOne({
+      _id: parent.student,
+      deletedAt: null,
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student record not found or inactive",
+      });
+    }
 
     const attendance = await Attendance.countDocuments({
       student: student._id,

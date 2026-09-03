@@ -1,9 +1,10 @@
 const express = require("express");
 const upload = require("../middleware/upload.Middleware");
 const validate = require("../middleware/validate");
+
 const router = express.Router();
 
-// 1. Controller imports (getAllTeachers add kiya gaya hai)
+// 1. Controller imports
 const {
   createTeacher,
   getTeachers,
@@ -11,6 +12,8 @@ const {
   getTeacherById,
   updateTeacher,
   deleteTeacher,
+  restoreTeacher,
+  getDeletedTeachers,
 } = require("../controllers/teacher.Controller");
 
 const { protect } = require("../middleware/auth.Middleware");
@@ -30,9 +33,11 @@ router.post(
   createTeacher
 );
 
-// 🟢 FIX: Main GET route ab Paginated & Protected 'getAllTeachers' par point kar raha hai
+// 🟢 FIX: Main GET route paginated & protected hai
 router.get("/", getAllTeachers);
-router.get("/all-unpaginated", getTeachers); // Optional: Agar raw/unpaginated list chahiye ho
+router.get("/all-unpaginated", getTeachers); // Optional: Unpaginated list ke liye
+router.get("/deleted", getDeletedTeachers);
+router.patch("/:id/restore", restoreTeacher);
 router.get("/:id", getTeacherById);
 router.put("/:id", teacherValidation, validate, updateTeacher);
 router.delete("/:id", deleteTeacher);

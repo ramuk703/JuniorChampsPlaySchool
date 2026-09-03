@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+const Student = require("../models/Student");
 const auditLog = require("../utils/auditLog");
 const FeePayment = require("../models/FeePayment");
 const AppError = require("../utils/AppError");
@@ -8,9 +10,36 @@ const cacheInvalidationService = require("../services/cacheInvalidation.service"
 // 1. Generate Fee (Fee Create Event)
 exports.generateFee = async (req, res) => {
   try {
-    const { amount, discount = 0, lateFee = 0 } = req.body;
+    // 🔒 Ignore paidBy from client body using rest operator
+    const {
+      amount,
+      discount = 0,
+      lateFee = 0,
+      student: studentId,
+      // eslint-disable-next-line no-unused-vars
+      paidBy: _ignoredPaidBy,
+      ...feeData
+    } = req.body;
 
-    // 🔒 Strict Financial Input Validation
+    // 🔒 1. Student Relationship Integrity Check
+    if (!studentId) {
+      throw new AppError("Student ID is required", 400);
+    }
+
+    if (!mongoose.isValidObjectId(studentId)) {
+      throw new AppError("Invalid student ID", 400);
+    }
+
+    const student = await Student.findOne({
+      _id: studentId,
+      deletedAt: null,
+    }).select("_id");
+
+    if (!student) {
+      throw new AppError("Student not found or deleted", 404);
+    }
+
+    // 🔒 2. Strict Financial Input Validation
     const numericAmount = Number(amount);
     const numericDiscount = Number(discount);
     const numericLateFee = Number(lateFee);
@@ -36,8 +65,10 @@ exports.generateFee = async (req, res) => {
 
     const receipt = "JCPS-" + Date.now();
 
+    // 🔒 Create payment safely with feeData, ignoring any client-sent paidBy
     const payment = await FeePayment.create({
-      ...req.body,
+      ...feeData,
+      student: student._id,
       amount: numericAmount,
       discount: numericDiscount,
       lateFee: numericLateFee,
@@ -45,9 +76,7 @@ exports.generateFee = async (req, res) => {
       receiptNumber: receipt,
     });
 
-    // ==========================================
-    // 👇 Fee Generate होने पर Audit Log
-    // ==========================================
+    // Audit Log
     auditLog({
       req,
       action: "CREATE",
@@ -59,9 +88,8 @@ exports.generateFee = async (req, res) => {
         receiptNumber: payment.receiptNumber,
       },
     });
-    // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clears Fee & Dashboard stats caches
+    // CACHE INVALIDATION
     await cacheInvalidationService.fee(payment._id);
 
     res.status(201).json({
@@ -83,25 +111,24 @@ exports.generateFee = async (req, res) => {
   }
 };
 
-// 2. Get Payments (Optimized Parallel Query & Pagination - Step 5.4.14.5)
+// 2. Get Payments (Optimized Parallel Query & Pagination)
 exports.getPayments = async (req, res) => {
   try {
-    // 🛡️ Safe Pagination Rules
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const requestedLimit = Number.parseInt(req.query.limit, 10) || 20;
     const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
 
-    // ⚡ Parallel Execution for Data + Count
     const [payments, total] = await Promise.all([
       FeePayment.find()
         .select(
-          "_id student month year feeType amount discount lateFee totalAmount status receiptNumber paymentMethod paymentDate createdAt"
+          "_id student month year feeType amount discount lateFee totalAmount status receiptNumber paymentMethod paymentDate createdAt paidBy"
         )
-        .populate(
-          "student",
-          "_id admissionNo firstName lastName className section"
-        )
+        .populate({
+          path: "student",
+          select: "_id admissionNo firstName lastName className section",
+          match: { deletedAt: null },
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -129,6 +156,13 @@ exports.getPayments = async (req, res) => {
 // 3. Mark Paid (Payment Status Update Event)
 exports.markPaid = async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment ID",
+      });
+    }
+
     const payment = await FeePayment.findById(req.params.id);
 
     if (!payment) {
@@ -138,12 +172,25 @@ exports.markPaid = async (req, res) => {
       });
     }
 
+    const student = await Student.findOne({
+      _id: payment.student,
+      deletedAt: null,
+    }).select("_id");
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Associated student not found or deleted",
+      });
+    }
+
     payment.status = "Paid";
+    if (req.user?._id) {
+      payment.paidBy = req.user._id;
+    }
+    payment.paymentDate = new Date();
     await payment.save();
 
-    // ==========================================
-    // 👇 Status Update होने पर Audit Log
-    // ==========================================
     auditLog({
       req,
       action: "PAYMENT_STATUS_UPDATE",
@@ -153,11 +200,10 @@ exports.markPaid = async (req, res) => {
         studentId: payment.student,
         amount: payment.totalAmount || payment.amount,
         status: payment.status,
+        paidBy: payment.paidBy,
       },
     });
-    // ==========================================
 
-    // 🧹 CACHE INVALIDATION: Clears Fee & Dashboard stats caches
     await cacheInvalidationService.fee(payment._id);
 
     res.json({

@@ -12,10 +12,11 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
   const result = await cacheService.remember(
     redisKeys.dashboardStats(),
     async () => {
-      const totalTeachers = await Teacher.countDocuments();
-      const totalStudents = await Student.countDocuments();
+      const totalTeachers = await Teacher.countDocuments({ deletedAt: null });
+      const totalStudents = await Student.countDocuments({ deletedAt: null });
       const activeTeachers = await Teacher.countDocuments({
         status: "Active",
+        deletedAt: null,
       });
 
       return {

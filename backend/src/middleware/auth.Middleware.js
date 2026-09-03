@@ -15,6 +15,14 @@ const protect = async (req, res, next) => {
 
       req.user = await User.findById(decoded.id).select("-password");
 
+      // Integrity Check: Ensure user exists in database
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "User account not found",
+        });
+      }
+
       next();
     } else {
       res.status(401).json({
@@ -23,7 +31,6 @@ const protect = async (req, res, next) => {
       });
     }
   } catch {
-    // यहाँ से (error) हटा दिया गया है क्योंकि यह कहीं यूज़ नहीं हो रहा था
     res.status(401).json({
       success: false,
       message: "Token failed",

@@ -68,9 +68,10 @@ exports.generateMonthlyFees = async (req, res, next) => {
     const totalAmount = baseAmount + lateFee;
 
     const result = await withTransaction(async (session) => {
-      // 1. Only active students are eligible for monthly fees
+      // 1. Only active non-deleted students are eligible for monthly fees
       const students = await Student.find({
         status: "Active",
+        deletedAt: null,
       })
         .select("_id")
         .session(session)
