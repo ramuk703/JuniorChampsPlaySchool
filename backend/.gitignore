@@ -7,3 +7,10 @@ dist/
 .vscode/*.log
 .env.*
 !.env.example
+
+# Database backups
+backups/
+*.archive
+*.archive.gz
+*.bson
+*.bson.gz
