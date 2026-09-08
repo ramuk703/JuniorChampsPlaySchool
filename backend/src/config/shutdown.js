@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const logger = require("./logger");
+const { redisClient } = require("./redis");
 
 let isShuttingDown = false;
 
@@ -32,6 +33,11 @@ const gracefulShutdown = (server, signal) => {
       if (mongoose.connection.readyState !== 0) {
         await mongoose.connection.close();
         logger.info("MongoDB connection closed.");
+      }
+
+      if (redisClient.isOpen) {
+        await redisClient.quit();
+        logger.info("Redis connection closed.");
       }
 
       logger.info("Graceful shutdown completed.");

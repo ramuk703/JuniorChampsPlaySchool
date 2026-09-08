@@ -50,8 +50,8 @@ exports.getTeachers = asyncHandler(async (req, res) => {
   ApiResponse.success(res, "Teachers fetched successfully", teachers);
 });
 
-// 2. Teacher By ID (Fixed to exclude soft-deleted records)
-exports.getTeacherById = async (req, res) => {
+// 2. Teacher By ID (Fixed to pass CastError to error middleware)
+exports.getTeacherById = async (req, res, next) => {
   try {
     const teacher = await Teacher.findOne({
       _id: req.params.id,
@@ -70,10 +70,7 @@ exports.getTeacherById = async (req, res) => {
       teacher,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
