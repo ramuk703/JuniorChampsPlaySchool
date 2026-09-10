@@ -11,14 +11,19 @@ const {
 } = require("../controllers/parent.Controller");
 
 const { protectParent } = require("../middleware/auth.Middleware");
+const validate = require("../middleware/validate");
+const {
+  registerParentValidation,
+  loginParentValidation,
+} = require("../validators/authValidator");
 const {
   authLimiter,
   registrationLimiter,
 } = require("../config/rateLimiter");
 
-router.post("/register", registrationLimiter, registerParent);
+router.post("/register", registrationLimiter, registerParentValidation, validate, registerParent);
 
-router.post("/login", authLimiter, loginParent);
+router.post("/login", authLimiter, loginParentValidation, validate, loginParent);
 
 router.get("/dashboard", protectParent, dashboard);
 

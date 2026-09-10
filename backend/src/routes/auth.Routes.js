@@ -10,6 +10,11 @@ const {
 
 // Sahi path (Kyunki folder ka naam 'middleware' hai, 'middlewares' nahi)
 const { protect } = require("../middleware/auth.Middleware");
+const validate = require("../middleware/validate");
+const {
+  registerUserValidation,
+  loginValidation,
+} = require("../validators/authValidator");
 const {
   authLimiter,
   registrationLimiter,
@@ -41,13 +46,13 @@ const {
  *                 example: admin@juniorchamps.com
  *               password:
  *                 type: string
- *                 example: 123456
+ *                 example: Abc12345
  *     responses:
  *       201:
  *         description: User registered successfully
  */
 
-router.post("/register", registrationLimiter, registerUser);
+router.post("/register", registrationLimiter, registerUserValidation, validate, registerUser);
 
 /**
  * @swagger
@@ -71,13 +76,13 @@ router.post("/register", registrationLimiter, registerUser);
  *                 example: admin@juniorchamps.com
  *               password:
  *                 type: string
- *                 example: 123456
+ *                 example: Abc12345
  *     responses:
  *       200:
  *         description: Login successful
  */
 
-router.post("/login", authLimiter, loginUser);
+router.post("/login", authLimiter, loginValidation, validate, loginUser);
 router.get("/profile", protect, getProfile);
 
 module.exports = router;
