@@ -1,9 +1,27 @@
 require("dotenv").config();
 
+const jwtSecret = process.env.JWT_SECRET;
+
+if (!jwtSecret) {
+  throw new Error(
+    "JWT_SECRET is required. Set a strong JWT_SECRET in the environment."
+  );
+}
+
+if (jwtSecret.length < 32) {
+  throw new Error(
+    "JWT_SECRET must be at least 32 characters long."
+  );
+}
+
 module.exports = {
   port: process.env.PORT,
   mongoUri: process.env.MONGODB_URI,
-  jwtSecret: process.env.JWT_SECRET,
+
+  jwtSecret,
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  jwtAlgorithm: "HS256",
+
   razorpayKey: process.env.RAZORPAY_KEY_ID,
   razorpaySecret: process.env.RAZORPAY_SECRET,
 };

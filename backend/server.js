@@ -33,6 +33,8 @@ const startServer = async () => {
 
     const app = require("./src/app");
 
+    await connectDB();
+
     // Start HTTP server after infrastructure initialization.
     server = app.listen(PORT, "0.0.0.0", () => {
       logger.info("Server running on port " + PORT);

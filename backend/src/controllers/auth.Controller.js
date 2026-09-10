@@ -6,7 +6,7 @@ const generateToken = require("../utils/generateToken");
 // 1. Register User Function
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
 
@@ -21,7 +21,7 @@ const registerUser = async (req, res) => {
       name,
       email,
       password,
-      role,
+      role: "parent",
     });
 
     res.status(201).json({
@@ -44,18 +44,18 @@ const loginUser = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "Invalid email or password",
       });
     }
 
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "Invalid password",
+        message: "Invalid email or password",
       });
     }
 
@@ -68,10 +68,19 @@ const loginUser = async (req, res) => {
       },
     });
 
+    const safeUser = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
     res.json({
       success: true,
       token: generateToken(user._id, user.role),
-      user,
+      user: safeUser,
     });
   } catch (error) {
     res.status(500).json({

@@ -53,10 +53,22 @@ exports.registerParent = async (req, res) => {
     // CACHE INVALIDATION
     await cacheInvalidationService.parent(parent._id);
 
+    const safeParent = {
+      _id: parent._id,
+      fatherName: parent.fatherName,
+      motherName: parent.motherName,
+      email: parent.email,
+      mobile: parent.mobile,
+      address: parent.address,
+      student: parent.student,
+      createdAt: parent.createdAt,
+      updatedAt: parent.updatedAt,
+    };
+
     res.status(201).json({
       success: true,
       token: generateToken(parent._id, "parent"),
-      parent,
+      parent: safeParent,
     });
   } catch (error) {
     res.status(500).json({
@@ -74,9 +86,9 @@ exports.loginParent = async (req, res) => {
     const parent = await Parent.findOne({ email });
 
     if (!parent) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        message: "Parent not found",
+        message: "Invalid email or password",
       });
     }
 
@@ -85,14 +97,26 @@ exports.loginParent = async (req, res) => {
     if (!match) {
       return res.status(401).json({
         success: false,
-        message: "Invalid password",
+        message: "Invalid email or password",
       });
     }
+
+    const safeParent = {
+      _id: parent._id,
+      fatherName: parent.fatherName,
+      motherName: parent.motherName,
+      email: parent.email,
+      mobile: parent.mobile,
+      address: parent.address,
+      student: parent.student,
+      createdAt: parent.createdAt,
+      updatedAt: parent.updatedAt,
+    };
 
     res.json({
       success: true,
       token: generateToken(parent._id, "parent"),
-      parent,
+      parent: safeParent,
     });
   } catch (error) {
     res.status(500).json({

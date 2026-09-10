@@ -242,8 +242,7 @@ const attendanceStats = async (req, res) => {
 // 9. Get Parent Attendance View (Optimized Query)
 const getParentAttendanceView = async (req, res) => {
   try {
-    const studentId = req.user.studentId || req.user.child;
-    const studentName = req.user.studentName || "Rahul Kumar";
+    const studentId = req.user.student;
 
     if (!studentId) {
       return res.status(400).json({
@@ -256,7 +255,7 @@ const getParentAttendanceView = async (req, res) => {
       _id: studentId,
       deletedAt: null,
     })
-      .select("_id")
+      .select("_id firstName lastName")
       .lean();
 
     if (!student) {
@@ -299,7 +298,7 @@ const getParentAttendanceView = async (req, res) => {
     }));
 
     res.status(200).json({
-      student: studentName,
+      student: `${student.firstName} ${student.lastName}`.trim(),
       attendancePercentage,
       thisMonth: formattedThisMonth,
     });
@@ -314,7 +313,7 @@ const getParentAttendanceView = async (req, res) => {
 const exportAttendanceToExcel = async (req, res) => {
   try {
     const attendanceRecords = await Attendance.find({})
-      .populate("student", "name rollNumber")
+      .populate("student", "firstName lastName admissionNo")
       .sort({ date: -1 });
 
     const workbook = new ExcelJS.Workbook();
@@ -333,7 +332,9 @@ const exportAttendanceToExcel = async (req, res) => {
         date: record.date
           ? new Date(record.date).toISOString().split("T")[0]
           : "N/A",
-        studentName: record.student?.name || "Rahul Kumar",
+        studentName: record.student
+          ? `${record.student.firstName} ${record.student.lastName}`.trim()
+          : "N/A",
         status: record.status,
       });
     });

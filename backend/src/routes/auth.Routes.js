@@ -42,9 +42,6 @@ const {
  *               password:
  *                 type: string
  *                 example: 123456
- *               role:
- *                 type: string
- *                 example: admin
  *     responses:
  *       201:
  *         description: User registered successfully

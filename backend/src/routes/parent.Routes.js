@@ -10,7 +10,7 @@ const {
   dashboard,
 } = require("../controllers/parent.Controller");
 
-const { protect } = require("../middleware/auth.Middleware");
+const { protectParent } = require("../middleware/auth.Middleware");
 const {
   authLimiter,
   registrationLimiter,
@@ -20,6 +20,6 @@ router.post("/register", registrationLimiter, registerParent);
 
 router.post("/login", authLimiter, loginParent);
 
-router.get("/dashboard", protect, dashboard);
+router.get("/dashboard", protectParent, dashboard);
 
 module.exports = router;
