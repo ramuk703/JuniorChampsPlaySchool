@@ -1,7 +1,12 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Parent = require("../models/Parent");
-const { jwtSecret, jwtAlgorithm } = require("../config/env");
+const {
+  jwtSecret,
+  jwtAlgorithm,
+  jwtIssuer,
+  jwtAudience,
+} = require("../config/env");
 
 const extractToken = (req) => {
   const authorization = req.headers.authorization;
@@ -18,6 +23,8 @@ const extractToken = (req) => {
 const verifyToken = (token) => {
   return jwt.verify(token, jwtSecret, {
     algorithms: [jwtAlgorithm],
+    issuer: jwtIssuer,
+    audience: jwtAudience,
   });
 };
 

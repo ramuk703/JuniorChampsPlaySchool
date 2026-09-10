@@ -21,6 +21,8 @@ module.exports = {
   jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   jwtAlgorithm: "HS256",
+  jwtIssuer: process.env.JWT_ISSUER || "juniorchamps-api",
+  jwtAudience: process.env.JWT_AUDIENCE || "juniorchamps-client",
 
   razorpayKey: process.env.RAZORPAY_KEY_ID,
   razorpaySecret: process.env.RAZORPAY_SECRET,

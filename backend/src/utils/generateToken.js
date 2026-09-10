@@ -1,5 +1,12 @@
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const { jwtSecret, jwtExpiresIn, jwtAlgorithm } = require("../config/env");
+const {
+  jwtSecret,
+  jwtExpiresIn,
+  jwtAlgorithm,
+  jwtIssuer,
+  jwtAudience,
+} = require("../config/env");
 
 const generateToken = (id, role) => {
   return jwt.sign(
@@ -8,6 +15,9 @@ const generateToken = (id, role) => {
     {
       expiresIn: jwtExpiresIn,
       algorithm: jwtAlgorithm,
+      issuer: jwtIssuer,
+      audience: jwtAudience,
+      jwtid: crypto.randomUUID(),
     }
   );
 };
