@@ -10,6 +10,10 @@ const {
 
 // Sahi path (Kyunki folder ka naam 'middleware' hai, 'middlewares' nahi)
 const { protect } = require("../middleware/auth.Middleware");
+const {
+  authLimiter,
+  registrationLimiter,
+} = require("../config/rateLimiter");
 
 /**
  * @swagger
@@ -46,7 +50,7 @@ const { protect } = require("../middleware/auth.Middleware");
  *         description: User registered successfully
  */
 
-router.post("/register", registerUser);
+router.post("/register", registrationLimiter, registerUser);
 
 /**
  * @swagger
@@ -76,7 +80,7 @@ router.post("/register", registerUser);
  *         description: Login successful
  */
 
-router.post("/login", loginUser);
+router.post("/login", authLimiter, loginUser);
 router.get("/profile", protect, getProfile);
 
 module.exports = router;

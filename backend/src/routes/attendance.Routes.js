@@ -21,6 +21,7 @@ const {
 } = require("../controllers/attendance.Controller");
 
 const { protect } = require("../middleware/auth.Middleware");
+const { exportLimiter } = require("../config/rateLimiter");
 
 router.use(protect);
 
@@ -43,6 +44,6 @@ router.get("/percentage/:id", attendancePercentage);
 router.get("/calendar/:id", getAttendanceCalendar);
 router.get("/analytics", attendanceStats);
 router.get("/parent/attendance", getParentAttendanceView);
-router.get("/attendance/export/excel", exportAttendanceToExcel);
+router.get("/attendance/export/excel", exportLimiter, exportAttendanceToExcel);
 
 module.exports = router;

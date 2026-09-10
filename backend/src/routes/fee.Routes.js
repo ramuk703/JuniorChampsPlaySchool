@@ -10,13 +10,14 @@ const {
 const { generateMonthlyFees } = require("../controllers/payment.Controller");
 const { protect } = require("../middleware/auth.Middleware");
 const adminOnly = require("../middleware/admin.Middleware");
+const { sensitiveLimiter } = require("../config/rateLimiter");
 
 router.use(protect);
 router.use(adminOnly);
 
-router.post("/", generateFee);
-router.post("/generate-monthly", generateMonthlyFees);
+router.post("/", sensitiveLimiter, generateFee);
+router.post("/generate-monthly", sensitiveLimiter, generateMonthlyFees);
 router.get("/", getPayments);
-router.put("/:id/pay", markPaid);
+router.put("/:id/pay", sensitiveLimiter, markPaid);
 
 module.exports = router;

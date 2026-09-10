@@ -1,3 +1,5 @@
+const { exportLimiter } = require("./rateLimiter");
+
 module.exports = (app) => {
   app.use("/api/v1/auth", require("../routes/auth.Routes"));
   app.use("/api/v1/students", require("../routes/student.Routes"));
@@ -20,6 +22,7 @@ module.exports = (app) => {
 
   app.get(
     "/api/v1/export/teachers",
+    exportLimiter,
     require("../controllers/teacher.Controller").exportTeachersToExcel
   );
 };

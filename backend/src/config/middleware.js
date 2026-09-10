@@ -6,15 +6,12 @@ const morgan = require("morgan");
 const logger = require("./logger");
 const express = require("express");
 const sanitizeMiddleware = require("../middleware/sanitize.Middleware");
-const limiter = require("./rateLimiter");
+const { globalApiLimiter } = require("./rateLimiter");
 // const requestLogger = require("../middleware/request.Logger");
 const requestIdMiddleware = require("../middleware/requestId.middleware");
 
 module.exports = (app) => {
-  // 1. Trust Proxy (Render/Nginx support)
-  app.set("trust proxy", 1);
-
-  // 2. Security Headers
+  // 1. Security Headers
   app.use(helmet());
 
   // 3. CORS Settings
@@ -52,6 +49,6 @@ module.exports = (app) => {
   );
   // app.use(requestLogger);
 
-  // 9. Apply Rate Limiting on API Routes
-  app.use("/api/", limiter);
+  // 9. Apply Global Rate Limiting on API Routes
+  app.use("/api/", globalApiLimiter);
 };
