@@ -11,7 +11,37 @@ const errorHandler = (err, req, res, _next) => {
     logger.error(err.stack);
   }
 
-  // 🟢 2. Mongoose Schema Validation Error
+  // 🛡️ 2. Request Payload Protection
+  if (err.type == "entity.too.large" || err.status === 413) {
+    return res.status(413).json({
+      success: false,
+      message: "Request payload is too large",
+    });
+  }
+
+  if (err.type == "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid request payload",
+    });
+  }
+
+  // 🛡️ 3. Multer Upload Protection
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({
+      success: false,
+      message: "Uploaded file is too large. Maximum size is 2 MB",
+    });
+  }
+
+  if (err.name === "MulterError") {
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Invalid file upload",
+    });
+  }
+
+  // 🟢 4. Mongoose Schema Validation Error
   if (err.name === "ValidationError") {
     return res.status(400).json({
       success: false,

@@ -25,8 +25,8 @@ module.exports = (app) => {
   app.use(hpp());
 
   // 6. Request Body Parsing
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "100kb", parameterLimit: 100 }));
 
   // 6.5 request ID Middleware
   app.use(requestIdMiddleware);
