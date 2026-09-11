@@ -153,10 +153,45 @@ const changePassword = async (req, res) => {
   }
 };
 
-// 5. Sabhi functions ko perfectly export karna (including changePassword)
+// 5. Logout User (Invalidate all active sessions)
+const logoutUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User account not found",
+      });
+    }
+
+    user.tokenVersion += 1;
+    await user.save();
+
+    auditLog({
+      req,
+      action: "LOGOUT",
+      resource: "Authentication",
+      resourceId: user._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// 6. Sabhi functions ko perfectly export karna (including logoutUser)
 module.exports = {
   registerUser,
   loginUser,
   getProfile,
   changePassword,
+  logoutUser,
 };

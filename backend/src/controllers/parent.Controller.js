@@ -229,3 +229,37 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+
+// 5. Logout Parent (Invalidate all active sessions)
+exports.logoutParent = async (req, res) => {
+  try {
+    const parent = await Parent.findById(req.user._id);
+
+    if (!parent) {
+      return res.status(401).json({
+        success: false,
+        message: "Parent account not found",
+      });
+    }
+
+    parent.tokenVersion += 1;
+    await parent.save();
+
+    auditLog({
+      req,
+      action: "LOGOUT",
+      resource: "Parent Authentication",
+      resourceId: parent._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

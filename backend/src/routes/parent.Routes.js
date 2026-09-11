@@ -7,6 +7,7 @@ const {
   loginParent,
   dashboard,
   changePassword,
+  logoutParent,
 } = require("../controllers/parent.Controller");
 
 const { protectParent } = require("../middleware/auth.Middleware");
@@ -28,7 +29,7 @@ router.post("/login", authLimiter, loginParentValidation, validate, loginParent)
 
 router.get("/dashboard", protectParent, dashboard);
 
-// New Password Change Route (Parent)
+// Password Change Route (Parent)
 router.patch(
   "/password",
   protectParent,
@@ -36,6 +37,14 @@ router.patch(
   changePasswordValidation,
   validate,
   changePassword
+);
+
+// Logout Route (Parent)
+router.post(
+  "/logout",
+  protectParent,
+  sensitiveLimiter,
+  logoutParent
 );
 
 module.exports = router;

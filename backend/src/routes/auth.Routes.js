@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
 
-// Controllers import (Added changePassword)
+// Controllers import (Added logoutUser)
 const {
   registerUser,
   loginUser,
   getProfile,
   changePassword,
+  logoutUser,
 } = require("../controllers/auth.Controller");
 
 // Sahi path (Kyunki folder ka naam 'middleware' hai, 'middlewares' nahi)
@@ -92,7 +93,7 @@ router.post("/register", registrationLimiter, registerUserValidation, validate, 
 router.post("/login", authLimiter, loginValidation, validate, loginUser);
 router.get("/profile", protect, getProfile);
 
-// New Password Change Route (User)
+// Password Change Route (User)
 router.patch(
   "/password",
   protect,
@@ -100,6 +101,14 @@ router.patch(
   changePasswordValidation,
   validate,
   changePassword
+);
+
+// Logout Route (User)
+router.post(
+  "/logout",
+  protect,
+  sensitiveLimiter,
+  logoutUser
 );
 
 module.exports = router;
