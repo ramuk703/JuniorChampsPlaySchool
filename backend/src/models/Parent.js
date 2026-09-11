@@ -54,6 +54,13 @@ const parentSchema = new mongoose.Schema(
       ref: "Student",
       required: true,
     },
+
+    // Step 1: Added tokenVersion for session invalidation
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,

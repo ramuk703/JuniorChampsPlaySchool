@@ -24,6 +24,13 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "parent"],
       default: "parent",
     },
+
+    // Step 1: Added tokenVersion for session invalidation
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,

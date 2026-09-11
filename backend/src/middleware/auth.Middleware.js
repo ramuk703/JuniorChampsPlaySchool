@@ -42,12 +42,31 @@ const protect = async (req, res, next) => {
 
     const decoded = verifyToken(token);
 
+    // Verify tokenVersion claim exists and is valid
+    if (
+      !Number.isInteger(decoded.tokenVersion) ||
+      decoded.tokenVersion < 0
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Token failed",
+      });
+    }
+
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "User account not found",
+      });
+    }
+
+    // Check if token's version matches database version (Invalidate if password changed)
+    if (user.tokenVersion !== decoded.tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: "Token has been invalidated",
       });
     }
 
@@ -76,12 +95,31 @@ const protectParent = async (req, res, next) => {
 
     const decoded = verifyToken(token);
 
+    // Verify tokenVersion claim exists and is valid
+    if (
+      !Number.isInteger(decoded.tokenVersion) ||
+      decoded.tokenVersion < 0
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Token failed",
+      });
+    }
+
     const parent = await Parent.findById(decoded.id).select("-password");
 
     if (!parent) {
       return res.status(401).json({
         success: false,
         message: "Parent account not found",
+      });
+    }
+
+    // Check if token's version matches database version (Invalidate if password changed)
+    if (parent.tokenVersion !== decoded.tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: "Token has been invalidated",
       });
     }
 

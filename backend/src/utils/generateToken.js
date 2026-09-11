@@ -8,9 +8,9 @@ const {
   jwtAudience,
 } = require("../config/env");
 
-const generateToken = (id, role) => {
+const generateToken = (id, role, tokenVersion) => {
   return jwt.sign(
-    { id, role },
+    { id, role, tokenVersion },
     jwtSecret,
     {
       expiresIn: jwtExpiresIn,

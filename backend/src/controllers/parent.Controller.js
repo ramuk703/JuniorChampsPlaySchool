@@ -67,7 +67,7 @@ exports.registerParent = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      token: generateToken(parent._id, "parent"),
+      token: generateToken(parent._id, "parent", parent.tokenVersion),
       parent: safeParent,
     });
   } catch (error) {
@@ -115,7 +115,7 @@ exports.loginParent = async (req, res) => {
 
     res.json({
       success: true,
-      token: generateToken(parent._id, "parent"),
+      token: generateToken(parent._id, "parent", parent.tokenVersion),
       parent: safeParent,
     });
   } catch (error) {
@@ -208,6 +208,7 @@ exports.changePassword = async (req, res) => {
     }
 
     parent.password = newPassword;
+    parent.tokenVersion += 1; // Invalidate all previous parent sessions
     await parent.save();
 
     auditLog({

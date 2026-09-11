@@ -26,7 +26,7 @@ const registerUser = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      token: generateToken(user._id, user.role),
+      token: generateToken(user._id, user.role, user.tokenVersion),
     });
   } catch (error) {
     res.status(500).json({
@@ -79,7 +79,7 @@ const loginUser = async (req, res) => {
 
     res.json({
       success: true,
-      token: generateToken(user._id, user.role),
+      token: generateToken(user._id, user.role, user.tokenVersion),
       user: safeUser,
     });
   } catch (error) {
@@ -98,7 +98,7 @@ const getProfile = async (req, res) => {
   });
 };
 
-// 4. Change User Password Function
+// 4. Change User Password Function (Increment tokenVersion to invalidate old tokens)
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -131,6 +131,7 @@ const changePassword = async (req, res) => {
     }
 
     user.password = newPassword;
+    user.tokenVersion += 1; // Invalidate all previous sessions
     await user.save();
 
     auditLog({
