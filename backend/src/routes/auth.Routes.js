@@ -1,23 +1,30 @@
 const express = require("express");
 const router = express.Router();
 
-// Controllers import
+// Controllers import (Added changePassword)
 const {
   registerUser,
   loginUser,
   getProfile,
+  changePassword,
 } = require("../controllers/auth.Controller");
 
 // Sahi path (Kyunki folder ka naam 'middleware' hai, 'middlewares' nahi)
 const { protect } = require("../middleware/auth.Middleware");
 const validate = require("../middleware/validate");
+
+// Validators import (Added changePasswordValidation)
 const {
   registerUserValidation,
   loginValidation,
+  changePasswordValidation,
 } = require("../validators/authValidator");
+
+// Rate limiters import (Added sensitiveLimiter)
 const {
   authLimiter,
   registrationLimiter,
+  sensitiveLimiter,
 } = require("../config/rateLimiter");
 
 /**
@@ -84,5 +91,15 @@ router.post("/register", registrationLimiter, registerUserValidation, validate, 
 
 router.post("/login", authLimiter, loginValidation, validate, loginUser);
 router.get("/profile", protect, getProfile);
+
+// New Password Change Route (User)
+router.patch(
+  "/password",
+  protect,
+  sensitiveLimiter,
+  changePasswordValidation,
+  validate,
+  changePassword
+);
 
 module.exports = router;

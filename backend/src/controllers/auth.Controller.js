@@ -98,9 +98,64 @@ const getProfile = async (req, res) => {
   });
 };
 
-// 4. Sabhi functions ko perfectly export karna
+// 4. Change User Password Function
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User account not found",
+      });
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const isSamePassword = await user.matchPassword(newPassword);
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    auditLog({
+      req,
+      action: "CHANGE_PASSWORD",
+      resource: "Authentication",
+      resourceId: user._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// 5. Sabhi functions ko perfectly export karna (including changePassword)
 module.exports = {
   registerUser,
   loginUser,
   getProfile,
+  changePassword,
 };

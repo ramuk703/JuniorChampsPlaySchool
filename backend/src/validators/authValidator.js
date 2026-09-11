@@ -77,3 +77,18 @@ exports.registerParentValidation = [
 ];
 
 exports.loginParentValidation = exports.loginValidation;
+
+// --- Step 1: Added changePasswordValidation ---
+exports.changePasswordValidation = [
+  body("currentPassword")
+    .isString()
+    .withMessage("Current password must be a string")
+    .isLength({ min: 1, max: 128 })
+    .withMessage("Invalid current password"),
+
+  body("newPassword")
+    .isString()
+    .withMessage("New password must be a string")
+    .isLength({ min: 8, max: 128 })
+    .withMessage("New password must be between 8 and 128 characters"),
+];

@@ -174,3 +174,57 @@ exports.dashboard = async (req, res) => {
     });
   }
 };
+
+// 4. Change Parent Password
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const parent = await Parent.findById(req.user._id);
+
+    if (!parent) {
+      return res.status(401).json({
+        success: false,
+        message: "Parent account not found",
+      });
+    }
+
+    const isMatch = await parent.matchPassword(currentPassword);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const isSamePassword = await parent.matchPassword(newPassword);
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
+    parent.password = newPassword;
+    await parent.save();
+
+    auditLog({
+      req,
+      action: "CHANGE_PASSWORD",
+      resource: "Parent Authentication",
+      resourceId: parent._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
