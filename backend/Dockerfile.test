@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm ci --include=dev --ignore-scripts
+
+RUN npm install --no-save --ignore-scripts \
+    jest@30.5.1 \
+    supertest@7.2.2
+
+COPY . .
+
+RUN chown -R node:node /app
+USER node
+
+CMD ["npm", "test", "--", "--runInBand"]

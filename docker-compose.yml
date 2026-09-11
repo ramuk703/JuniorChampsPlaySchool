@@ -39,6 +39,26 @@ services:
     networks:
       - juniorchamps-network
 
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+
+    container_name: juniorchamps-backend-test
+
+    env_file:
+      - ./backend/.env.docker
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    networks:
+      - juniorchamps-network
+
+    profiles:
+      - test
+
   redis:
     image: redis:7-alpine
 
