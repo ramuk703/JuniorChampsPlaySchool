@@ -1,4 +1,5 @@
 const razorpay = require("../config/razorpay");
+const { razorpaySecret } = require("../config/env");
 const crypto = require("crypto");
 const Student = require("../models/Student");
 const FeePayment = require("../models/FeePayment");
@@ -6,6 +7,13 @@ const withTransaction = require("../utils/withTransaction");
 
 exports.createOrder = async (req, res) => {
   try {
+    if (!razorpay) {
+      return res.status(503).json({
+        success: false,
+        message: "Payment service is not configured.",
+      });
+    }
+
     const options = {
       amount: req.body.amount * 100,
       currency: "INR",
@@ -28,11 +36,18 @@ exports.createOrder = async (req, res) => {
 
 exports.verifyPayment = async (req, res) => {
   try {
+    if (!razorpaySecret) {
+      return res.status(503).json({
+        success: false,
+        message: "Payment service is not configured.",
+      });
+    }
+
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       req.body;
 
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+      .createHmac("sha256", razorpaySecret)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 

@@ -1,6 +1,11 @@
 const Razorpay = require("razorpay");
+const { razorpayKey, razorpaySecret } = require("./env");
 
-module.exports = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_dummykey123",
-  key_secret: process.env.RAZORPAY_SECRET || "dummysecretkey123",
-});
+if (!razorpayKey || !razorpaySecret) {
+  module.exports = null;
+} else {
+  module.exports = new Razorpay({
+    key_id: razorpayKey,
+    key_secret: razorpaySecret,
+  });
+}

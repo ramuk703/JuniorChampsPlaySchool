@@ -1,13 +1,9 @@
-const dotenv = require("dotenv");
-dotenv.config();
+const { port: PORT } = require("./src/config/env");
 
 const { connectRedis } = require("./src/config/redis");
 const connectDB = require("./src/config/db");
 const logger = require("./src/config/logger");
 const gracefulShutdown = require("./src/config/shutdown");
-
-// Fix 1: Typo fixed (process.process -> process.env)
-const PORT = process.env.PORT || 5000;
 
 let server;
 

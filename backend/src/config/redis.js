@@ -3,6 +3,9 @@ const logger = require("./logger");
 
 const redisClient = createClient({
   url: process.env.REDIS_URL,
+  socket: {
+    reconnectStrategy: false,
+  },
 });
 
 redisClient.on("connect", () => {
@@ -29,8 +32,12 @@ const connectRedis = async () => {
   } catch (error) {
     logger.error(`Redis connection failed: ${error.message}`);
 
+    if (redisClient.isOpen) {
+      await redisClient.quit().catch(() => {});
+    }
+
     // Redis is an optional infrastructure dependency.
-    // Don't crash the entire API if Redis is unavailable.
+    // The API continues without Redis when it is unavailable.
   }
 };
 
