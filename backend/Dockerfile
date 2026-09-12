@@ -32,4 +32,4 @@ HEALTHCHECK --interval=30s \
     --retries=3 \
     CMD node -e "require('http').get('http://127.0.0.1:5000/', res => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
