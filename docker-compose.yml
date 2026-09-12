@@ -43,6 +43,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.test
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
     container_name: juniorchamps-backend-test
 

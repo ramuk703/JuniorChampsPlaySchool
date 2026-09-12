@@ -17,6 +17,16 @@ const redisKeys = {
   otp: (purpose, identifier) =>
     `${PREFIX}:otp:${purpose}:${String(identifier).toLowerCase().trim()}`,
 
+  authFailed: (accountType, protectionHash) =>
+    `${PREFIX}:auth:failed:${String(accountType).toLowerCase()}:${String(
+      protectionHash
+    ).trim()}`,
+
+  authBlocked: (accountType, protectionHash) =>
+    `${PREFIX}:auth:blocked:${String(accountType).toLowerCase()}:${String(
+      protectionHash
+    ).trim()}`,
+
   schoolSettings: () => `${PREFIX}:school:settings`,
 };
 

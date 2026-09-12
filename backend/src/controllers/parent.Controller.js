@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Parent = require("../models/Parent");
 const auditLog = require("../utils/auditLog");
 const generateToken = require("../utils/generateToken");
+const authProtection = require("../services/authProtection.service");
 
 const Student = require("../models/Student");
 const Attendance = require("../models/Attendance");
@@ -83,9 +84,40 @@ exports.loginParent = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const parent = await Parent.findOne({ email });
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const sourceIp = req.ip || req.socket?.remoteAddress || "unknown";
+
+    // Check protection status using email + IP combination
+    const protectionStatus = await authProtection.getProtectionStatus(
+      "parent",
+      normalizedEmail,
+      sourceIp
+    );
+
+    if (protectionStatus.blocked) {
+      if (protectionStatus.retryAfter > 0) {
+        res.set(
+          "Retry-After",
+          String(protectionStatus.retryAfter)
+        );
+      }
+
+      return res.status(429).json({
+        success: false,
+        message:
+          "Too many failed login attempts. Please try again later.",
+      });
+    }
+
+    const parent = await Parent.findOne({ email: normalizedEmail });
 
     if (!parent) {
+      await authProtection.recordFailure(
+        "parent",
+        normalizedEmail,
+        sourceIp
+      );
+
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -95,11 +127,24 @@ exports.loginParent = async (req, res) => {
     const match = await parent.matchPassword(password);
 
     if (!match) {
+      await authProtection.recordFailure(
+        "parent",
+        normalizedEmail,
+        sourceIp
+      );
+
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
+
+    // Clear failures on successful login
+    await authProtection.clearFailures(
+      "parent",
+      normalizedEmail,
+      sourceIp
+    );
 
     const safeParent = {
       _id: parent._id,

@@ -552,3 +552,204 @@ describe("Security regression — parent authentication", () => {
     expect(freshTokenResponse.status).toBe(200);
   });
 });
+
+describe("Security regression — Email + IP failed-login protection", () => {
+  test("blocks a user email + IP after repeated failed logins", async () => {
+    const email = TEST_USER_EMAIL;
+    const wrongPassword = "DefinitelyWrongPassword123!";
+
+    // First five failures should be normal authentication failures.
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await request(app)
+        .post("/api/v1/auth/login")
+        .send({
+          email,
+          password: wrongPassword,
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe(
+        "Invalid email or password"
+      );
+    }
+
+    // The next request should be blocked.
+    const blockedResponse = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email,
+        password: wrongPassword,
+      });
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body).toEqual({
+      success: false,
+      message:
+        "Too many failed login attempts. Please try again later.",
+    });
+
+    expect(blockedResponse.headers["retry-after"]).toBeDefined();
+  });
+
+  test("blocks a parent email + IP after repeated failed logins", async () => {
+    const email = TEST_PARENT_EMAIL;
+    const wrongPassword = "DefinitelyWrongParentPassword123!";
+
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await request(app)
+        .post("/api/v1/parents/login")
+        .send({
+          email,
+          password: wrongPassword,
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe(
+        "Invalid email or password"
+      );
+    }
+
+    const blockedResponse = await request(app)
+      .post("/api/v1/parents/login")
+      .send({
+        email,
+        password: wrongPassword,
+      });
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body).toEqual({
+      success: false,
+      message:
+        "Too many failed login attempts. Please try again later.",
+    });
+
+    expect(blockedResponse.headers["retry-after"]).toBeDefined();
+  });
+
+  test("successful login clears failed-login protection", async () => {
+    const email = TEST_USER_EMAIL;
+    const wrongPassword = "DefinitelyWrongPassword123!";
+
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      const response = await request(app)
+        .post("/api/v1/auth/login")
+        .send({
+          email,
+          password: wrongPassword,
+        });
+
+      expect(response.status).toBe(401);
+    }
+
+    // Correct login before threshold should reset the counter.
+    const successfulLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email,
+        password: TEST_USER_PASSWORD,
+      });
+
+    expect(successfulLogin.status).toBe(200);
+    expect(successfulLogin.body.success).toBe(true);
+
+    // Four new failures should still be allowed.
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      const response = await request(app)
+        .post("/api/v1/auth/login")
+        .send({
+          email,
+          password: wrongPassword,
+        });
+
+      expect(response.status).toBe(401);
+    }
+  });
+
+  test("unknown email uses the same authentication response", async () => {
+    const unknownEmail =
+      "security-nonexistent-account@example.com";
+
+    const response = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: unknownEmail,
+        password: "WrongPassword123!",
+      });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      success: false,
+      message: "Invalid email or password",
+    });
+  });
+
+  test("different IP does not inherit another IP's failed-login protection", async () => {
+    const authProtection = require("../src/services/authProtection.service");
+
+    const email = TEST_USER_EMAIL;
+    const ipA = "10.10.10.1";
+    const ipB = "10.10.10.2";
+
+    // Build the failure counter from IP A.
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      await authProtection.recordFailure(
+        "user",
+        email,
+        ipA
+      );
+    }
+
+    const blockedA = await authProtection.getProtectionStatus(
+      "user",
+      email,
+      ipA
+    );
+
+    expect(blockedA.blocked).toBe(true);
+
+    // IP B must have an independent protection bucket.
+    const blockedB = await authProtection.getProtectionStatus(
+      "user",
+      email,
+      ipB
+    );
+
+    expect(blockedB.blocked).toBe(false);
+
+    // The protection state for IP A must not affect IP B.
+    await authProtection.clearFailures(
+      "user",
+      email,
+      ipB
+    );
+
+    const blockedBAfterClear = await authProtection.getProtectionStatus(
+      "user",
+      email,
+      ipB
+    );
+
+    expect(blockedBAfterClear.blocked).toBe(false);
+  });
+
+  test("failed-login Redis keys do not contain the email or password", async () => {
+    const email = TEST_USER_EMAIL;
+    const password = "DefinitelyWrongPassword123!";
+
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email,
+        password,
+      });
+
+    const keys = await redisClient.keys("jc:auth:*");
+
+    expect(keys.length).toBeGreaterThan(0);
+
+    for (const key of keys) {
+      expect(key).not.toContain(email);
+      expect(key).not.toContain(password);
+    }
+  });
+});

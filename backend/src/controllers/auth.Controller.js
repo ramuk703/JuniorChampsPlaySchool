@@ -2,6 +2,7 @@
 const auditLog = require("../utils/auditLog");
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
+const authProtection = require("../services/authProtection.service");
 
 // 1. Register User Function
 const registerUser = async (req, res) => {
@@ -41,9 +42,40 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const sourceIp = req.ip || req.socket?.remoteAddress || "unknown";
+
+    // Check protection status using email + IP combination
+    const protectionStatus = await authProtection.getProtectionStatus(
+      "user",
+      normalizedEmail,
+      sourceIp
+    );
+
+    if (protectionStatus.blocked) {
+      if (protectionStatus.retryAfter > 0) {
+        res.set(
+          "Retry-After",
+          String(protectionStatus.retryAfter)
+        );
+      }
+
+      return res.status(429).json({
+        success: false,
+        message:
+          "Too many failed login attempts. Please try again later.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
+      await authProtection.recordFailure(
+        "user",
+        normalizedEmail,
+        sourceIp
+      );
+
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -53,11 +85,24 @@ const loginUser = async (req, res) => {
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
+      await authProtection.recordFailure(
+        "user",
+        normalizedEmail,
+        sourceIp
+      );
+
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
+
+    // Clear failures on successful login
+    await authProtection.clearFailures(
+      "user",
+      normalizedEmail,
+      sourceIp
+    );
 
     auditLog({
       req,
