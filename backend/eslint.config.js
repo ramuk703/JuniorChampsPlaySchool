@@ -3,6 +3,7 @@ const globals = require("globals");
 
 module.exports = [
   js.configs.recommended,
+
   {
     languageOptions: {
       ecmaVersion: "latest",
@@ -14,6 +15,16 @@ module.exports = [
       "no-console": "off",
       semi: ["error", "always"],
       quotes: ["error", "double"],
+    },
+  },
+
+  {
+    files: ["tests/**/*.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
     },
   },
 ];

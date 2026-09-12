@@ -753,3 +753,99 @@ describe("Security regression — Email + IP failed-login protection", () => {
     }
   });
 });
+
+describe("Security regression — centralized audit logging", () => {
+  test("redacts sensitive fields from audit details", () => {
+    const { sanitizeValue } = require("../src/services/audit.service");
+
+    const sanitized = sanitizeValue({
+      password: "SuperSecret123!",
+      currentPassword: "OldSecret123!",
+      newPassword: "NewSecret123!",
+      token: "jwt-token-value",
+      accessToken: "access-token-value",
+      refreshToken: "refresh-token-value",
+      authorization: "Bearer secret-token",
+      cookie: "session=secret",
+      otp: "123456",
+      secret: "application-secret",
+      jwt: "jwt-secret",
+      safeField: "safe-value",
+    });
+
+    expect(sanitized).toEqual({
+      password: "[REDACTED]",
+      currentPassword: "[REDACTED]",
+      newPassword: "[REDACTED]",
+      token: "[REDACTED]",
+      accessToken: "[REDACTED]",
+      refreshToken: "[REDACTED]",
+      authorization: "[REDACTED]",
+      cookie: "[REDACTED]",
+      otp: "[REDACTED]",
+      secret: "[REDACTED]",
+      jwt: "[REDACTED]",
+      safeField: "safe-value",
+    });
+  });
+
+  test("redacts sensitive fields recursively", () => {
+    const { sanitizeValue } = require("../src/services/audit.service");
+
+    const sanitized = sanitizeValue({
+      profile: {
+        name: "Test User",
+        credentials: {
+          password: "NestedPassword123!",
+          token: "NestedToken",
+        },
+      },
+      events: [
+        {
+          action: "LOGIN",
+          password: "ArrayPassword123!",
+        },
+      ],
+    });
+
+    expect(sanitized).toEqual({
+      profile: {
+        name: "Test User",
+        credentials: {
+          password: "[REDACTED]",
+          token: "[REDACTED]",
+        },
+      },
+      events: [
+        {
+          action: "LOGIN",
+          password: "[REDACTED]",
+        },
+      ],
+    });
+  });
+
+  test("preserves non-sensitive audit details", () => {
+    const { sanitizeValue } = require("../src/services/audit.service");
+
+    const sanitized = sanitizeValue({
+      studentId: "student-123",
+      action: "ATTENDANCE_UPDATED",
+      status: "present",
+      metadata: {
+        source: "admin-panel",
+        count: 1,
+      },
+    });
+
+    expect(sanitized).toEqual({
+      studentId: "student-123",
+      action: "ATTENDANCE_UPDATED",
+      status: "present",
+      metadata: {
+        source: "admin-panel",
+        count: 1,
+      },
+    });
+  });
+});
