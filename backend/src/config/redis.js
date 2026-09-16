@@ -4,7 +4,21 @@ const logger = require("./logger");
 const redisClient = createClient({
   url: process.env.REDIS_URL,
   socket: {
-    reconnectStrategy: false,
+    reconnectStrategy: (retries) => {
+      // Retry Redis connections with exponential backoff,
+      // capped at 5 seconds. Stop after 10 attempts.
+      if (retries > 10) {
+        logger.error("Redis reconnect limit reached");
+        return new Error("Redis reconnect limit reached");
+      }
+
+      const delay = Math.min(100 * 2 ** retries, 5000);
+      logger.warn(
+        `Redis reconnect attempt ${retries + 1}, retrying in ${delay}ms`
+      );
+
+      return delay;
+    },
   },
 });
 

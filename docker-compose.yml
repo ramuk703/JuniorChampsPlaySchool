@@ -6,7 +6,16 @@ services:
       dockerfile: Dockerfile
 
     container_name: juniorchamps-backend
-
+    read_only: true
+    tmpfs:
+     - /tmp
+    cap_drop:
+    - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - juniorchamps-backend-logs:/app/logs
+      - juniorchamps-backend-uploads:/app/uploads
     ports:
       - "5000:5000"
 
@@ -27,7 +36,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "const req = require('http').get('http://127.0.0.1:5000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1));"
+          "const req = require('http').get('http://127.0.0.1:5000/health/live', (r) => process.exit(r.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1));"
         ]
       interval: 10s
       timeout: 5s
@@ -35,6 +44,9 @@ services:
       start_period: 10s
 
     restart: unless-stopped
+
+    mem_limit: 512m
+    cpus: 1.0
 
     networks:
       - juniorchamps-network
@@ -64,15 +76,28 @@ services:
 
   redis:
     image: redis:7-alpine
+    user: "redis"
 
     container_name: juniorchamps-redis
+    read_only: true
+    tmpfs:
+     - /tmp
+    cap_drop:
+    - ALL
+    cap_add:
+    - SETUID
+    - SETGID
+    security_opt:
+    - no-new-privileges:true
 
     command:
       - redis-server
       - --appendonly
       - "yes"
-      - --requirepass
-      - ${REDIS_PASSWORD}
+      - --aclfile
+      - /data/users.acl
+      - --protected-mode
+      - "yes"
       - --maxmemory
       - 256mb
       - --maxmemory-policy
@@ -84,17 +109,17 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "redis-cli",
-          "-a",
-          "${REDIS_PASSWORD}",
-          "ping",
+          "CMD-SHELL",
+          "REDISCLI_AUTH=\"$$REDIS_HEALTH_PASSWORD\" redis-cli --user \"$$REDIS_HEALTH_USERNAME\" ping",
         ]
       interval: 10s
       timeout: 5s
       retries: 5
 
     restart: unless-stopped
+
+    mem_limit: 512m
+    cpus: 0.5
 
     networks:
       - juniorchamps-network
@@ -105,3 +130,5 @@ networks:
 
 volumes:
   redis-data:
+  juniorchamps-backend-logs:
+  juniorchamps-backend-uploads:
