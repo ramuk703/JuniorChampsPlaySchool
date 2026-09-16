@@ -48,6 +48,82 @@ if (jwtSecret.length < 32) {
 
 const mongoUri = readRequired("MONGODB_URI");
 
+// --- SMTP Validation Updated ---
+const smtpHost = process.env.SMTP_HOST?.trim();
+const smtpUser = process.env.SMTP_USER?.trim();
+const smtpPassword = process.env.SMTP_PASSWORD?.trim();
+const smtpFromName =
+  process.env.SMTP_FROM_NAME?.trim() || "Junior Champ's Play School";
+const smtpFromEmail = process.env.SMTP_FROM_EMAIL?.trim();
+const smtpPort = readPositiveInteger(
+  process.env.SMTP_PORT,
+  587,
+  "SMTP_PORT"
+);
+
+const smtpSecureRaw = String(
+  process.env.SMTP_SECURE || "false"
+).toLowerCase();
+
+if (!["true", "false"].includes(smtpSecureRaw)) {
+  throw new Error("SMTP_SECURE must be either true or false.");
+}
+const smtpSecure = smtpSecureRaw === "true";
+
+const smtpConnectionTimeoutMs = readPositiveInteger(
+  process.env.SMTP_CONNECTION_TIMEOUT_MS,
+  10000,
+  "SMTP_CONNECTION_TIMEOUT_MS"
+);
+const smtpGreetingTimeoutMs = readPositiveInteger(
+  process.env.SMTP_GREETING_TIMEOUT_MS,
+  10000,
+  "SMTP_GREETING_TIMEOUT_MS"
+);
+const smtpSocketTimeoutMs = readPositiveInteger(
+  process.env.SMTP_SOCKET_TIMEOUT_MS,
+  10000,
+  "SMTP_SOCKET_TIMEOUT_MS"
+);
+
+if (smtpPort > 65535) {
+  throw new Error("SMTP_PORT must be between 1 and 65535.");
+}
+
+const allowedSmtpPorts = [25, 465, 587, 2525];
+if (!allowedSmtpPorts.includes(smtpPort)) {
+  throw new Error(
+    `SMTP_PORT must be one of: ${allowedSmtpPorts.join(", ")}.`
+  );
+}
+
+if (smtpSecure && smtpPort !== 465) {
+  throw new Error(
+    "SMTP_SECURE=true requires SMTP_PORT=465."
+  );
+}
+
+if (!smtpSecure && smtpPort === 465) {
+  throw new Error(
+    "SMTP_PORT=465 requires SMTP_SECURE=true."
+  );
+}
+
+const smtpConfigured = Boolean(
+  smtpHost && smtpUser && smtpPassword && smtpFromEmail
+);
+
+if (nodeEnv === "production" && !smtpConfigured) {
+  throw new Error(
+    "SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM_EMAIL are required in production."
+  );
+}
+
+if (smtpConfigured && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(smtpFromEmail)) {
+  throw new Error("SMTP_FROM_EMAIL must be a valid email address.");
+}
+// ----------------------------------
+
 const port = readPositiveInteger(process.env.PORT, 5000, "PORT");
 
 if (port > 65535) {
@@ -134,4 +210,18 @@ module.exports = {
 
   razorpayKey,
   razorpaySecret,
+
+  smtp: {
+    configured: smtpConfigured,
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    user: smtpUser,
+    password: smtpPassword,
+    fromName: smtpFromName,
+    fromEmail: smtpFromEmail,
+    connectionTimeoutMs: smtpConnectionTimeoutMs,
+    greetingTimeoutMs: smtpGreetingTimeoutMs,
+    socketTimeoutMs: smtpSocketTimeoutMs,
+  },
 };

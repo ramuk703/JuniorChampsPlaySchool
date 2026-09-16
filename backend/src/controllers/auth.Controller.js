@@ -3,6 +3,8 @@ const auditLog = require("../utils/auditLog");
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const authProtection = require("../services/authProtection.service");
+const emailService = require("../services/email.service");
+const { welcomeEmail } = require("../templates/email");
 
 // 1. Register User Function
 const registerUser = async (req, res) => {
@@ -24,6 +26,29 @@ const registerUser = async (req, res) => {
       password,
       role: "parent",
     });
+
+    // Send Welcome Email
+    const welcome = welcomeEmail({
+      name: user.name,
+      email: user.email,
+    });
+
+    try {
+      await emailService.sendEmail({
+        to: user.email,
+        subject: welcome.subject,
+        text: welcome.text,
+        html: welcome.html,
+      });
+    } catch (emailError) {
+      // Email delivery must not make successful registration fail.
+      auditLog({
+        req,
+        action: "EMAIL_DELIVERY_FAILED",
+        resource: "Authentication",
+        resourceId: user._id,
+      });
+    }
 
     res.status(201).json({
       success: true,

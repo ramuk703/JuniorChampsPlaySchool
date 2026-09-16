@@ -4,6 +4,10 @@ const auditLog = require("../utils/auditLog");
 const FeePayment = require("../models/FeePayment");
 const AppError = require("../utils/AppError");
 
+// 🟢 Email Service & Template Imports
+const emailService = require("../services/email.service");
+const { paymentEmail } = require("../templates/email");
+
 // 🟢 Centralized Invalidation Service Import
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
@@ -175,7 +179,7 @@ exports.markPaid = async (req, res) => {
     const student = await Student.findOne({
       _id: payment.student,
       deletedAt: null,
-    }).select("_id");
+    }).select("_id firstName lastName email");
 
     if (!student) {
       return res.status(404).json({
@@ -185,10 +189,13 @@ exports.markPaid = async (req, res) => {
     }
 
     payment.status = "Paid";
+
     if (req.user?._id) {
       payment.paidBy = req.user._id;
     }
+
     payment.paymentDate = new Date();
+
     await payment.save();
 
     auditLog({
@@ -205,6 +212,38 @@ exports.markPaid = async (req, res) => {
     });
 
     await cacheInvalidationService.fee(payment._id);
+
+    // 📧 Payment confirmation email
+    // Email failure must not affect the successful payment operation.
+    if (student.email) {
+      const studentName = `${student.firstName} ${student.lastName}`.trim();
+
+      const confirmation = paymentEmail({
+        parentName: studentName,
+        studentName,
+        amount: payment.totalAmount || payment.amount,
+        receiptNumber: payment.receiptNumber || "N/A",
+      });
+
+      try {
+        await emailService.sendEmail({
+          to: student.email,
+          subject: confirmation.subject,
+          text: confirmation.text,
+          html: confirmation.html,
+        });
+      } catch (emailError) {
+        auditLog({
+          req,
+          action: "EMAIL_DELIVERY_FAILED",
+          resource: "FeePayment",
+          resourceId: payment._id,
+          details: {
+            emailType: "PAYMENT_CONFIRMATION",
+          },
+        });
+      }
+    }
 
     res.json({
       success: true,
