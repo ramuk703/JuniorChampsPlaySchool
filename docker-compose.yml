@@ -55,6 +55,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.test
+    environment:
+      NODE_ENV: test
+      SMTP_ENABLED: "false"
+      REDIS_URL: redis://redis-test:6379
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -65,7 +69,7 @@ services:
       - ./backend/.env.docker
 
     depends_on:
-      redis:
+      redis-test:
         condition: service_healthy
 
     networks:
@@ -73,6 +77,35 @@ services:
 
     profiles:
       - test
+
+  redis-test:
+    image: redis:7-alpine
+
+    container_name: juniorchamps-redis-test
+
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+    profiles:
+      - test
+
+    networks:
+      - juniorchamps-network
 
   redis:
     image: redis:7-alpine
