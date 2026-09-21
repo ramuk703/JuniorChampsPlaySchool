@@ -43,3 +43,13 @@ export const deleteStudent = async (id) => {
   const response = await api.delete(`/students/${id}`);
   return response.data;
 };
+
+export const getDeletedStudents = async () => {
+  const response = await api.get("/students/deleted");
+  return response.data;
+};
+
+export const restoreStudent = async (id) => {
+  const response = await api.patch(`/students/${id}/restore`);
+  return response.data;
+};

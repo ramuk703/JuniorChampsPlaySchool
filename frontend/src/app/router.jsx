@@ -10,6 +10,7 @@ import PublicLayout from "../layouts/PublicLayout";
 import AddStudentPage from "../pages/admin/AddStudentPage";
 import EditStudentPage from "../pages/admin/EditStudentPage"; // Yahan import kiya
 import DashboardPage from "../pages/admin/DashboardPage";
+import DeletedStudentsPage from "../pages/admin/DeletedStudentsPage";
 import StudentsPage from "../pages/admin/StudentsPage";
 import LoginPage from "../pages/auth/LoginPage";
 import HomePage from "../pages/public/HomePage";
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
               {
                 path: "students/new",
                 element: <AddStudentPage />,
+              },
+              {
+                path: "students/deleted",
+                element: <DeletedStudentsPage />,
               },
               {
                 path: "students/:id/edit", // Naya Edit Student route add kiya
