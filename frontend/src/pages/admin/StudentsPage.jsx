@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FiAlertCircle,
   FiPlus,
@@ -12,6 +12,7 @@ import { Link, useNavigate } from "react-router-dom";
 import StudentPagination from "../../components/students/StudentPagination";
 import StudentTable from "../../components/students/StudentTable";
 import {
+  deleteStudent,
   getStudents,
   searchStudents,
 } from "../../services/studentService";
@@ -67,8 +68,38 @@ function StudentsPage() {
     navigate(`/admin/students/${student._id}/edit`);
   };
 
-  const handleDelete = () => {
-    // Delete functionality will be implemented with the backend delete API.
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (studentId) => deleteStudent(studentId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["students"],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "stats"],
+      });
+    },
+  });
+
+  const handleDelete = (student) => {
+    const fullName = [
+      student.firstName,
+      student.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${fullName || "this student"}?\n\nThe student will be moved to the deleted records and can be restored later.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteMutation.mutate(student._id);
   };
 
   return (

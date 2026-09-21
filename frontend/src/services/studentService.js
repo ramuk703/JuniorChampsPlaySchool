@@ -38,3 +38,8 @@ export const updateStudent = async (id, formData) => {
   const response = await api.put(`/students/${id}`, formData);
   return response.data;
 };
+
+export const deleteStudent = async (id) => {
+  const response = await api.delete(`/students/${id}`);
+  return response.data;
+};
