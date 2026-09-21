@@ -35,7 +35,7 @@ exports.createStudent = async (req, res, next) => {
       student,
     });
   } catch (err) {
-    next(err); // 👈 Critical: Ye Mongoose error ko central error middleware tak bhejega
+    next(err); 
   }
 };
 
@@ -72,7 +72,6 @@ exports.getStudents = async (req, res, next) => {
 
 exports.searchStudent = async (req, res, next) => {
   try {
-    // 🛡️ Search Input Sanitization & Empty Input Guardrail (Step 5.4.14.4)
     const rawInput = req.query.q || req.query.keyword || "";
     const keyword = String(rawInput).trim();
 
@@ -83,21 +82,97 @@ exports.searchStudent = async (req, res, next) => {
       });
     }
 
-    const students = await Student.find({
-      deletedAt: null,
-      $or: [
-        { firstName: { $regex: keyword, $options: "i" } },
-        { lastName: { $regex: keyword, $options: "i" } },
-        { admissionNo: { $regex: keyword, $options: "i" } },
-      ],
-    })
+    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchTerms = escapedKeyword.split(/\s+/).filter(Boolean);
+
+    let searchQuery;
+
+    if (searchTerms.length === 1) {
+      // Single-word search:
+      // first name OR last name OR admission number
+      searchQuery = {
+        deletedAt: null,
+        $or: [
+          {
+            firstName: {
+              $regex: searchTerms[0],
+              $options: "i",
+            },
+          },
+          {
+            lastName: {
+              $regex: searchTerms[0],
+              $options: "i",
+            },
+          },
+          {
+            admissionNo: {
+              $regex: searchTerms[0],
+              $options: "i",
+            },
+          },
+        ],
+      };
+    } else {
+      // Multi-word search (e.g., "Rahul Kumar" or "Kumar Rahul")
+      const firstTerm = searchTerms[0];
+      const remainingTerms = searchTerms.slice(1);
+
+      searchQuery = {
+        deletedAt: null,
+        $or: [
+          {
+            $and: [
+              {
+                firstName: {
+                  $regex: firstTerm,
+                  $options: "i",
+                },
+              },
+              ...remainingTerms.map((term) => ({
+                lastName: {
+                  $regex: term,
+                  $options: "i",
+                },
+              })),
+            ],
+          },
+          {
+            $and: [
+              {
+                lastName: {
+                  $regex: firstTerm,
+                  $options: "i",
+                },
+              },
+              ...remainingTerms.map((term) => ({
+                firstName: {
+                  $regex: term,
+                  $options: "i",
+                },
+              })),
+            ],
+          },
+          {
+            admissionNo: {
+              $regex: escapedKeyword,
+              $options: "i",
+            },
+          },
+        ],
+      };
+    }
+
+    // 🔍 Temporary Debug Logs
+
+    const students = await Student.find(searchQuery)
       .select(
         "_id admissionNo firstName lastName gender className section mobile status"
       )
       .limit(20)
       .lean();
 
-    res.json(students);
+    return res.json(students);
   } catch (err) {
     next(err);
   }
@@ -105,7 +180,6 @@ exports.searchStudent = async (req, res, next) => {
 
 exports.updateStudent = async (req, res, next) => {
   try {
-    // 🛡️ Hardened: Only update active students (deletedAt: null)
     const student = await Student.findOneAndUpdate(
       {
         _id: req.params.id,
@@ -146,7 +220,6 @@ exports.deleteStudent = async (req, res, next) => {
   try {
     const studentId = req.params.id;
 
-    // 🛡️ Soft Delete Implementation
     const student = await Student.findOneAndUpdate(
       {
         _id: studentId,
