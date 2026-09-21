@@ -2,6 +2,27 @@ import { FiEdit2, FiTrash2, FiUser } from "react-icons/fi";
 
 import StudentStatusBadge from "./StudentStatusBadge";
 
+const getPhotoUrl = (photo) => {
+  if (!photo) {
+    return "";
+  }
+
+  if (
+    photo.startsWith("http://") ||
+    photo.startsWith("https://") ||
+    photo.startsWith("blob:")
+  ) {
+    return photo;
+  }
+
+  const apiUrl =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+
+  const backendUrl = apiUrl.replace(/\/api\/v1\/?$/, "");
+
+  return `${backendUrl}/${photo.replace(/^\/+/, "")}`;
+};
+
 function StudentTable({
   students = [],
   loading = false,
@@ -91,6 +112,8 @@ function StudentTable({
               .filter(Boolean)
               .join(" ");
 
+            const photoUrl = getPhotoUrl(student.photo || student.studentPhoto);
+
             return (
               <tr
                 key={student._id}
@@ -98,9 +121,9 @@ function StudentTable({
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
-                    {student.photo ? (
+                    {photoUrl ? (
                       <img
-                        src={student.photo}
+                        src={photoUrl}
                         alt={fullName || "Student"}
                         className="h-10 w-10 shrink-0 rounded-full object-cover"
                       />

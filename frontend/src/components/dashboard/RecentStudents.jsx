@@ -1,6 +1,27 @@
 import { FiArrowRight, FiUser } from "react-icons/fi";
 import { Link } from "react-router-dom";
 
+function getPhotoUrl(photo) {
+  if (!photo) {
+    return "";
+  }
+
+  if (
+    photo.startsWith("http://") ||
+    photo.startsWith("https://") ||
+    photo.startsWith("blob:")
+  ) {
+    return photo;
+  }
+
+  const apiUrl =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+
+  const backendUrl = apiUrl.replace(/\/api\/v1\/?$/, "");
+
+  return `${backendUrl}/${photo.replace(/^\/+/, "")}`;
+}
+
 function RecentStudents({ students = [], loading = false }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -55,7 +76,7 @@ function RecentStudents({ students = [], loading = false }) {
                 >
                   {student.photo ? (
                     <img
-                      src={student.photo}
+                      src={getPhotoUrl(student.photo)}
                       alt={fullName || "Student"}
                       className="h-10 w-10 rounded-full object-cover"
                     />

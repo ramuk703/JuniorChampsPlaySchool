@@ -9,7 +9,7 @@ exports.createStudent = async (req, res, next) => {
     const studentData = req.body;
 
     if (req.file) {
-      studentData.studentPhoto = req.file.path;
+      studentData.photo = req.file.path;
     }
 
     const student = await Student.create(studentData);
@@ -35,7 +35,31 @@ exports.createStudent = async (req, res, next) => {
       student,
     });
   } catch (err) {
-    next(err); 
+    next(err);
+  }
+};
+
+// Naya function add kiya gaya hai: Single student ID ke zariye data laane ke liye
+exports.getStudentById = async (req, res, next) => {
+  try {
+    const student = await Student.findOne({
+      _id: req.params.id,
+      deletedAt: null,
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      student,
+    });
+  } catch (err) {
+    next(err);
   }
 };
 
@@ -88,8 +112,6 @@ exports.searchStudent = async (req, res, next) => {
     let searchQuery;
 
     if (searchTerms.length === 1) {
-      // Single-word search:
-      // first name OR last name OR admission number
       searchQuery = {
         deletedAt: null,
         $or: [
@@ -114,7 +136,6 @@ exports.searchStudent = async (req, res, next) => {
         ],
       };
     } else {
-      // Multi-word search (e.g., "Rahul Kumar" or "Kumar Rahul")
       const firstTerm = searchTerms[0];
       const remainingTerms = searchTerms.slice(1);
 
@@ -163,8 +184,6 @@ exports.searchStudent = async (req, res, next) => {
       };
     }
 
-    // 🔍 Temporary Debug Logs
-
     const students = await Student.find(searchQuery)
       .select(
         "_id admissionNo firstName lastName gender className section mobile status"
@@ -180,12 +199,24 @@ exports.searchStudent = async (req, res, next) => {
 
 exports.updateStudent = async (req, res, next) => {
   try {
+    const updateData = { ...req.body };
+
+    if (typeof updateData.transport === "string") {
+      updateData.transport = updateData.transport === "true";
+    }
+
+    if (req.file) {
+      updateData.photo = req.file.path;
+    }
+
+    delete updateData.studentPhoto;
+
     const student = await Student.findOneAndUpdate(
       {
         _id: req.params.id,
         deletedAt: null,
       },
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,

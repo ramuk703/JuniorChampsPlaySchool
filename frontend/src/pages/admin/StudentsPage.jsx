@@ -7,7 +7,7 @@ import {
   FiSearch,
   FiUsers,
 } from "react-icons/fi";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import StudentPagination from "../../components/students/StudentPagination";
 import StudentTable from "../../components/students/StudentTable";
@@ -17,6 +17,7 @@ import {
 } from "../../services/studentService";
 
 function StudentsPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -63,11 +64,11 @@ function StudentsPage() {
   };
 
   const handleEdit = (student) => {
-    console.log("Edit student:", student);
+    navigate(`/admin/students/${student._id}/edit`);
   };
 
-  const handleDelete = (student) => {
-    console.log("Delete student:", student);
+  const handleDelete = () => {
+    // Delete functionality will be implemented with the backend delete API.
   };
 
   return (

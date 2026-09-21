@@ -11,6 +11,12 @@ export const getStudents = async ({ page = 1, limit = 10 } = {}) => {
   return response.data;
 };
 
+// Naya function: Single student ka data laane ke liye
+export const getStudent = async (id) => {
+  const response = await api.get(`/students/${id}`);
+  return response.data;
+};
+
 export const searchStudents = async (keyword) => {
   const response = await api.get("/students/search", {
     params: {
@@ -24,5 +30,11 @@ export const searchStudents = async (keyword) => {
 export const createStudent = async (formData) => {
   const response = await api.post("/students", formData);
 
+  return response.data;
+};
+
+// Naya function: Student ka data update karne ke liye
+export const updateStudent = async (id, formData) => {
+  const response = await api.put(`/students/${id}`, formData);
   return response.data;
 };

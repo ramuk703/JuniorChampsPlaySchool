@@ -8,6 +8,7 @@ import AuthLayout from "../layouts/AuthLayout";
 import PublicLayout from "../layouts/PublicLayout";
 
 import AddStudentPage from "../pages/admin/AddStudentPage";
+import EditStudentPage from "../pages/admin/EditStudentPage"; // Yahan import kiya
 import DashboardPage from "../pages/admin/DashboardPage";
 import StudentsPage from "../pages/admin/StudentsPage";
 import LoginPage from "../pages/auth/LoginPage";
@@ -57,6 +58,10 @@ const router = createBrowserRouter([
               {
                 path: "students/new",
                 element: <AddStudentPage />,
+              },
+              {
+                path: "students/:id/edit", // Naya Edit Student route add kiya
+                element: <EditStudentPage />,
               },
             ],
           },

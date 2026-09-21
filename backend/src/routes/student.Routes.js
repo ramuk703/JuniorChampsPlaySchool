@@ -10,6 +10,7 @@ const adminOnly = require("../middleware/admin.Middleware");
 // 2. Controller imports
 const {
   createStudent,
+  getStudentById,
   getStudents,
   updateStudent,
   deleteStudent,
@@ -27,8 +28,9 @@ router.post("/", upload.single("studentPhoto"), createStudent);
 router.get("/", getStudents);
 router.get("/search", searchStudent);
 router.get("/deleted", getDeletedStudents);
+router.get("/:id", getStudentById); // Naya route add kiya gaya hai
 router.patch("/:id/restore", restoreStudent);
-router.put("/:id", updateStudent);
+router.put("/:id", upload.single("studentPhoto"), updateStudent);
 router.delete("/:id", deleteStudent);
 
 module.exports = router;

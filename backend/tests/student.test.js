@@ -245,6 +245,54 @@ describe("Student API — listing and pagination", () => {
   });
 });
 
+describe("Student API — get by ID", () => {
+  test("returns an existing student by ID", async () => {
+    const student = await Student.create(studentPayload());
+
+    const response = await request(app)
+      .get(`/api/v1/students/${student._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.student).toBeDefined();
+    expect(response.body.student._id).toBe(student._id.toString());
+    expect(response.body.student.admissionNo).toBe(student.admissionNo);
+  });
+
+  test("returns 404 for a nonexistent student", async () => {
+    const response = await request(app)
+      .get("/api/v1/students/507f1f77bcf86cd799439011")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+  });
+
+  test("returns 404 for a soft-deleted student", async () => {
+    const student = await Student.create({
+      ...studentPayload(),
+      deletedAt: new Date(),
+    });
+
+    const response = await request(app)
+      .get(`/api/v1/students/${student._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+  });
+
+  test("rejects unauthenticated get-by-ID requests", async () => {
+    const student = await Student.create(studentPayload());
+
+    const response = await request(app)
+      .get(`/api/v1/students/${student._id}`);
+
+    expect(response.status).toBe(401);
+  });
+});
+
 describe("Student API — search", () => {
   beforeEach(async () => {
     await Student.create([

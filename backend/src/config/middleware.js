@@ -13,7 +13,13 @@ const requestIdMiddleware = require("../middleware/requestId.middleware");
 
 module.exports = (app) => {
   // 1. Security Headers
-  app.use(helmet());
+  app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+  }),
+);
 
   // 3. CORS Settings
   app.use(cors(corsOptions));
