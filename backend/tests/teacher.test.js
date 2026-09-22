@@ -1,4 +1,5 @@
 const request = require("supertest");
+const ExcelJS = require("exceljs");
 const mongoose = require("mongoose");
 
 jest.setTimeout(30000);
@@ -266,6 +267,62 @@ describe("Teacher API — listing", () => {
         (teacher) => teacher.employeeId === deleted.employeeId
       )
     ).toBe(false);
+  });
+});
+
+describe("Teacher API — Excel export", () => {
+  test("exports active teachers with correct full names", async () => {
+    const teacher = await Teacher.create(teacherPayload("EXPORT"));
+
+    const response = await request(app)
+      .get("/api/v1/teachers/export")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const data = [];
+
+        res.on("data", (chunk) => data.push(chunk));
+        res.on("end", () => callback(null, Buffer.concat(data)));
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toMatch(
+      /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/
+    );
+    expect(response.headers["content-disposition"]).toContain(
+      "attachment; filename=teachers.xlsx"
+    );
+
+    const workbook = new ExcelJS.Workbook();
+
+    await workbook.xlsx.load(response.body);
+
+    const worksheet = workbook.getWorksheet("Teachers");
+
+    expect(worksheet).toBeDefined();
+
+    const headers = worksheet.getRow(1).values;
+
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        "ID",
+        "Name",
+        "Email",
+        "Status",
+        "Created At",
+      ])
+    );
+
+    const exportedRow = worksheet
+      .getRows(2, worksheet.rowCount - 1)
+      .find((row) => row.getCell(1).value === teacher._id.toString());
+
+    expect(exportedRow).toBeDefined();
+    expect(exportedRow.getCell(2).value).toBe(
+      `${teacher.firstName} ${teacher.lastName}`
+    );
+    expect(exportedRow.getCell(3).value).toBe(teacher.email);
+    expect(exportedRow.getCell(4).value).toBe("Active");
   });
 });
 

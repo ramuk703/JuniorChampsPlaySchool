@@ -385,7 +385,7 @@ exports.exportTeachersToExcel = async (req, res) => {
     teachers.forEach((teacher) => {
       worksheet.addRow({
         _id: teacher._id.toString(),
-        name: teacher.name,
+        name: [teacher.firstName, teacher.lastName].filter(Boolean).join(" "),
         email: teacher.email,
         status: teacher.status || "N/A",
         createdAt: teacher.createdAt,
