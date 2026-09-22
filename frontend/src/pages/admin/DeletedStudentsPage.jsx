@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FiAlertCircle,
   FiArrowLeft,
   FiRefreshCw,
   FiRotateCcw,
+  FiSearch,
   FiTrash2,
   FiUser,
 } from "react-icons/fi";
@@ -35,6 +37,11 @@ function formatDeletedDate(date) {
 function DeletedStudentsPage() {
   const queryClient = useQueryClient();
 
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const LIMIT = 10;
+
   const {
     data: deletedData,
     isLoading,
@@ -43,8 +50,13 @@ function DeletedStudentsPage() {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ["students", "deleted"],
-    queryFn: getDeletedStudents,
+    queryKey: ["students", "deleted", page, searchKeyword],
+    queryFn: () =>
+      getDeletedStudents({
+        page,
+        limit: LIMIT,
+        search: searchKeyword,
+      }),
   });
 
   const restoreMutation = useMutation({
@@ -60,9 +72,24 @@ function DeletedStudentsPage() {
     },
   });
 
-  const students = deletedData?.students || (
-    Array.isArray(deletedData) ? deletedData : []
-  );
+  const students = Array.isArray(deletedData?.students)
+    ? deletedData.students
+    : [];
+  const total = Number(deletedData?.total || 0);
+  const totalPages = Number(deletedData?.totalPages || 1);
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+
+    setPage(1);
+    setSearchKeyword(search.trim());
+  };
+
+  const handleClearSearch = () => {
+    setSearch("");
+    setSearchKeyword("");
+    setPage(1);
+  };
 
   const handleRestore = (student) => {
     const fullName = [
@@ -111,30 +138,68 @@ function DeletedStudentsPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 p-5">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="font-semibold text-slate-900">
               Deleted Student Records
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
-              {students.length} deleted student
-              {students.length === 1 ? "" : "s"}
+              {searchKeyword
+                ? `${total} search result${total === 1 ? "" : "s"}`
+                : `${total} deleted student${total === 1 ? "" : "s"}`}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex w-full gap-2 lg:max-w-md"
           >
-            <FiRefreshCw
-              size={15}
-              className={isFetching ? "animate-spin" : ""}
-            />
-            Refresh
-          </button>
+            <div className="relative min-w-0 flex-1">
+              <FiSearch
+                size={17}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search name, admission no. or mobile"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Search
+            </button>
+
+            {searchKeyword && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Clear
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              title="Refresh"
+            >
+              <FiRefreshCw
+                size={16}
+                className={isFetching ? "animate-spin" : ""}
+              />
+            </button>
+          </form>
         </div>
 
         {isError ? (
@@ -266,6 +331,41 @@ function DeletedStudentsPage() {
             </p>
           </div>
         ) : null}
+
+        {!isLoading && !isError && totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-200 px-5 py-4">
+            <p className="text-sm text-slate-500">
+              Showing {(page - 1) * LIMIT + 1}-
+              {Math.min(page * LIMIT, total)} of {total} students
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page === 1 || isFetching}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+
+              <span className="px-2 text-sm font-medium text-slate-600">
+                {page} / {totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={page >= totalPages || isFetching}
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

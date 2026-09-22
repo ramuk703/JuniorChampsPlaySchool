@@ -9,7 +9,31 @@ const cacheInvalidationService = require("../services/cacheInvalidation.service"
 const asyncHandler = require("../middleware/async.Handler");
 
 const TEACHER_SELECT_FIELDS =
-  "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary photo status createdAt";
+  "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary status createdAt";
+
+// Helper function for multi-word safe regex search
+const buildMultiFieldSearch = (search = "", fields = []) => {
+  const terms = search
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+  if (!terms.length) {
+    return {};
+  }
+
+  return {
+    $and: terms.map((term) => ({
+      $or: fields.map((field) => ({
+        [field]: {
+          $regex: term,
+          $options: "i",
+        },
+      })),
+    })),
+  };
+};
 
 exports.createTeacher = async (req, res) => {
   try {
@@ -74,7 +98,7 @@ exports.getTeacherById = async (req, res, next) => {
   }
 };
 
-// 3. Paginated List (Optimized Query with Safe Pagination & Protected Sorting - Step 5.4.14)
+// 3. Paginated List with Multi-Word Search Support
 exports.getAllTeachers = async (req, res) => {
   try {
     // 🛡️ Safe Pagination Sanitization Rules
@@ -82,6 +106,21 @@ exports.getAllTeachers = async (req, res) => {
     const requestedLimit = Number.parseInt(req.query.limit, 10) || 10;
     const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
+
+    // 🔍 Multi-word Search Handling
+    const searchKeyword = req.query.search || req.query.q || "";
+    const searchFilter = buildMultiFieldSearch(searchKeyword, [
+      "firstName",
+      "lastName",
+      "employeeId",
+      "email",
+      "mobile",
+    ]);
+
+    const filter = {
+      deletedAt: null,
+      ...searchFilter,
+    };
 
     // 🔒 Sorting Whitelist & Protection Logic
     const allowedSortFields = [
@@ -108,16 +147,16 @@ exports.getAllTeachers = async (req, res) => {
     };
 
     const [teachers, totalRecords] = await Promise.all([
-      Teacher.find({ deletedAt: null })
+      Teacher.find(filter)
         .select(TEACHER_SELECT_FIELDS)
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean(),
-      Teacher.countDocuments({ deletedAt: null }),
+      Teacher.countDocuments(filter),
     ]);
 
-    const totalPages = Math.ceil(totalRecords / limit);
+    const totalPages = Math.ceil(totalRecords / limit) || 1;
 
     res.json({
       success: true,
@@ -139,7 +178,6 @@ exports.getAllTeachers = async (req, res) => {
 // 4. Update Teacher (Hardened against soft-deleted records)
 exports.updateTeacher = async (req, res) => {
   try {
-    // 🛡️ Filter lookup to only active teachers
     const existingTeacher = await Teacher.findOne({
       _id: req.params.id,
       deletedAt: null,
@@ -161,7 +199,6 @@ exports.updateTeacher = async (req, res) => {
       updateData.photo = req.file.path;
     }
 
-    // 🛡️ Hardened update query
     const teacher = await Teacher.findOneAndUpdate(
       {
         _id: req.params.id,
@@ -181,7 +218,6 @@ exports.updateTeacher = async (req, res) => {
       resourceId: teacher._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clears both Teacher & Dashboard stats caches
     await cacheInvalidationService.teacher(teacher._id);
 
     res.json({
@@ -229,7 +265,6 @@ exports.deleteTeacher = async (req, res) => {
       resourceId: teacher._id,
     });
 
-    // 🧹 CACHE INVALIDATION: Clears both Teacher & Dashboard stats caches
     await cacheInvalidationService.teacher(teacher._id);
 
     res.json({
@@ -299,10 +334,22 @@ exports.getDeletedTeachers = async (req, res) => {
     );
     const skip = (page - 1) * limit;
 
+    const searchKeyword = String(req.query.search || "").trim();
+    const searchFilter = buildMultiFieldSearch(searchKeyword, [
+      "firstName",
+      "lastName",
+      "employeeId",
+      "email",
+      "mobile",
+    ]);
+
+    const filter = {
+      deletedAt: { $ne: null },
+      ...searchFilter,
+    };
+
     const [teachers, total] = await Promise.all([
-      Teacher.find({
-        deletedAt: { $ne: null },
-      })
+      Teacher.find(filter)
         .select(
           "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary status deletedAt createdAt"
         )
@@ -311,9 +358,7 @@ exports.getDeletedTeachers = async (req, res) => {
         .limit(limit)
         .lean(),
 
-      Teacher.countDocuments({
-        deletedAt: { $ne: null },
-      }),
+      Teacher.countDocuments(filter),
     ]);
 
     res.json({
@@ -321,7 +366,7 @@ exports.getDeletedTeachers = async (req, res) => {
       page,
       limit,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit) || 1,
       teachers,
     });
   } catch (error) {
@@ -340,11 +385,14 @@ exports.searchTeachers = asyncHandler(async (req, res) => {
   };
 
   if (keyword) {
-    filter.$or = [
-      { firstName: { $regex: keyword, $options: "i" } },
-      { lastName: { $regex: keyword, $options: "i" } },
-      { employeeId: { $regex: keyword, $options: "i" } },
-    ];
+    const searchFilter = buildMultiFieldSearch(keyword, [
+      "firstName",
+      "lastName",
+      "employeeId",
+      "email",
+      "mobile",
+    ]);
+    Object.assign(filter, searchFilter);
   }
 
   if (status) {

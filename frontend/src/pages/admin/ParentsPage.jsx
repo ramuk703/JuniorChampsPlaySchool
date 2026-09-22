@@ -10,41 +10,61 @@ import {
 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 
-import StudentPagination from "../../components/students/StudentPagination";
-import StudentTable from "../../components/students/StudentTable";
+import ParentPagination from "../../components/parents/ParentPagination";
+import ParentTable from "../../components/parents/ParentTable";
 import {
-  deleteStudent,
-  getStudents,
-} from "../../services/studentService";
+  deleteParent,
+  getParents,
+} from "../../services/parentService";
 
-function StudentsPage() {
+function ParentsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
 
   const {
-    data: studentsData,
+    data: parentsData,
     isLoading,
     isFetching,
     isError,
     error,
     refetch,
   } = useQuery({
-    queryKey: ["students", "list", page, searchKeyword],
+    queryKey: ["parents", "list", page, searchKeyword],
     queryFn: () =>
-      getStudents({
+      getParents({
         page,
         limit: 10,
         search: searchKeyword,
       }),
+    keepPreviousData: true,
   });
 
-  const students = Array.isArray(studentsData?.students)
-    ? studentsData.students
+  const parents = Array.isArray(parentsData?.data)
+    ? parentsData.data
     : [];
-  const total = Number(studentsData?.total || 0);
-  const totalPages = Number(studentsData?.totalPages || 1);
+
+  const total = Number(parentsData?.totalRecords || 0);
+  const totalPages = Number(parentsData?.totalPages || 1);
+
+  const isSearching = searchKeyword.trim().length > 0;
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteParent,
+
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["parents"],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "stats"],
+      });
+    },
+  });
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -59,42 +79,22 @@ function StudentsPage() {
     setPage(1);
   };
 
-  const handleEdit = (student) => {
-    navigate(`/admin/students/${student._id}/edit`);
+  const handleEdit = (parent) => {
+    navigate(`/admin/parents/${parent._id}/edit`);
   };
 
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation({
-    mutationFn: (studentId) => deleteStudent(studentId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["students"],
-      });
-
-      await queryClient.invalidateQueries({
-        queryKey: ["dashboard", "stats"],
-      });
-    },
-  });
-
-  const handleDelete = (student) => {
-    const fullName = [
-      student.firstName,
-      student.lastName,
-    ]
-      .filter(Boolean)
-      .join(" ");
+  const handleDelete = (parent) => {
+    const parentName = parent.fatherName || parent.motherName || "this parent";
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete ${fullName || "this student"}?\n\nThe student will be moved to the deleted records and can be restored later.`
+      `Are you sure you want to delete the parent record for ${parentName}?\n\nThe parent will be moved to deleted records and can be restored later.`
     );
 
     if (!confirmed) {
       return;
     }
 
-    deleteMutation.mutate(student._id);
+    deleteMutation.mutate(parent._id);
   };
 
   return (
@@ -107,29 +107,29 @@ function StudentsPage() {
 
           <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             <FiUsers size={27} />
-            Students
+            Parents
           </h1>
 
           <p className="mt-2 text-sm text-slate-500 sm:text-base">
-            Manage registered students and their information.
+            Manage parent accounts and their linked students.
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
-            to="/admin/students/deleted"
+            to="/admin/parents/deleted"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
             <FiTrash2 size={17} />
-            Deleted Students
+            Deleted Parents
           </Link>
 
           <Link
-            to="/admin/students/new"
+            to="/admin/parents/new"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
           >
             <FiPlus size={17} />
-            Add Student
+            Add Parent
           </Link>
         </div>
       </section>
@@ -138,13 +138,13 @@ function StudentsPage() {
         <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="font-semibold text-slate-900">
-              Student Directory
+              Parent Directory
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
-              {searchKeyword
+              {isSearching
                 ? `${total} search result${total === 1 ? "" : "s"}`
-                : `${total} registered student${total === 1 ? "" : "s"}`}
+                : `${total} registered parent${total === 1 ? "" : "s"}`}
             </p>
           </div>
 
@@ -162,7 +162,7 @@ function StudentsPage() {
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search name or admission no."
+                placeholder="Search parent, email or mobile"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
               />
             </div>
@@ -174,7 +174,7 @@ function StudentsPage() {
               Search
             </button>
 
-            {searchKeyword && (
+            {isSearching ? (
               <button
                 type="button"
                 onClick={handleClearSearch}
@@ -182,9 +182,32 @@ function StudentsPage() {
               >
                 Clear
               </button>
-            )}
+            ) : null}
           </form>
         </div>
+
+        {deleteMutation.isError ? (
+          <div className="mx-5 mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="flex gap-3">
+              <FiAlertCircle
+                size={20}
+                className="mt-0.5 shrink-0 text-red-600"
+              />
+
+              <div>
+                <p className="font-semibold text-red-800">
+                  Unable to delete parent
+                </p>
+
+                <p className="mt-1 text-sm text-red-700">
+                  {deleteMutation.error?.response?.data?.message ||
+                    deleteMutation.error?.message ||
+                    "Something went wrong while deleting the parent."}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {isError ? (
           <div className="m-5 rounded-xl border border-red-200 bg-red-50 p-4">
@@ -196,7 +219,7 @@ function StudentsPage() {
 
               <div>
                 <p className="font-semibold text-red-800">
-                  Unable to load students
+                  Unable to load parents
                 </p>
 
                 <p className="mt-1 text-sm text-red-700">
@@ -218,24 +241,29 @@ function StudentsPage() {
           </div>
         ) : null}
 
-        <StudentTable
-          students={students}
-          loading={isLoading}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+        {!isError ? (
+          <ParentTable
+            parents={parents}
+            loading={isLoading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            deletingId={deleteMutation.isPending ? deleteMutation.variables : null}
+          />
+        ) : null}
 
-        <StudentPagination
-          page={Number(studentsData?.page || page)}
-          pages={totalPages}
-          total={total}
-          limit={Number(studentsData?.limit || 10)}
-          onPageChange={setPage}
-          disabled={isFetching}
-        />
+        {!isError && totalPages > 1 ? (
+          <ParentPagination
+            page={Number(parentsData?.page || page)}
+            pages={totalPages}
+            total={total}
+            limit={Number(parentsData?.limit || 10)}
+            onPageChange={setPage}
+            disabled={isFetching}
+          />
+        ) : null}
       </section>
     </div>
   );
 }
 
-export default StudentsPage;
+export default ParentsPage;

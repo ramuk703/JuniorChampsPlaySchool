@@ -1,10 +1,15 @@
 import api from "./api";
 
-export const getStudents = async ({ page = 1, limit = 10 } = {}) => {
+export const getStudents = async ({
+  page = 1,
+  limit = 10,
+  search = "",
+} = {}) => {
   const response = await api.get("/students", {
     params: {
       page,
       limit,
+      ...(search.trim() ? { search: search.trim() } : {}),
     },
   });
 
@@ -14,16 +19,6 @@ export const getStudents = async ({ page = 1, limit = 10 } = {}) => {
 // Naya function: Single student ka data laane ke liye
 export const getStudent = async (id) => {
   const response = await api.get(`/students/${id}`);
-  return response.data;
-};
-
-export const searchStudents = async (keyword) => {
-  const response = await api.get("/students/search", {
-    params: {
-      q: keyword,
-    },
-  });
-
   return response.data;
 };
 
@@ -44,8 +39,19 @@ export const deleteStudent = async (id) => {
   return response.data;
 };
 
-export const getDeletedStudents = async () => {
-  const response = await api.get("/students/deleted");
+export const getDeletedStudents = async ({
+  page = 1,
+  limit = 10,
+  search = "",
+} = {}) => {
+  const response = await api.get("/students/deleted", {
+    params: {
+      page,
+      limit,
+      ...(search.trim() ? { search: search.trim() } : {}),
+    },
+  });
+
   return response.data;
 };
 

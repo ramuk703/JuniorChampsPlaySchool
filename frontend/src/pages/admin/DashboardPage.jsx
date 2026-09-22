@@ -109,6 +109,22 @@ function DashboardPage() {
         />
 
         <StatCard
+          title="Active Students"
+          value={stats?.activeStudents ?? 0}
+          icon={FiActivity}
+          description="Students currently marked active"
+          loading={statsLoading}
+        />
+
+        <StatCard
+          title="Inactive Students"
+          value={stats?.inactiveStudents ?? 0}
+          icon={FiUsers}
+          description="Students currently marked inactive"
+          loading={statsLoading}
+        />
+
+        <StatCard
           title="Total Teachers"
           value={stats?.totalTeachers ?? 0}
           icon={FiUsers}
@@ -121,6 +137,14 @@ function DashboardPage() {
           value={stats?.activeTeachers ?? 0}
           icon={FiActivity}
           description="Teachers currently marked active"
+          loading={statsLoading}
+        />
+
+        <StatCard
+          title="Inactive Teachers"
+          value={stats?.inactiveTeachers ?? 0}
+          icon={FiUsers}
+          description="Teachers currently marked inactive"
           loading={statsLoading}
         />
       </section>

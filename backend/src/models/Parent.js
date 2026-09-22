@@ -61,6 +61,11 @@ const parentSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,

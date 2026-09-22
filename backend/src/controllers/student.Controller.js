@@ -4,6 +4,30 @@ const Student = require("../models/Student");
 // 🟢 Centralized Invalidation Service Import
 const cacheInvalidationService = require("../services/cacheInvalidation.service");
 
+// Helper function for multi-word safe regex search
+const buildMultiFieldSearch = (search = "", fields = []) => {
+  const terms = search
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+  if (!terms.length) {
+    return {};
+  }
+
+  return {
+    $and: terms.map((term) => ({
+      $or: fields.map((field) => ({
+        [field]: {
+          $regex: term,
+          $options: "i",
+        },
+      })),
+    })),
+  };
+};
+
 exports.createStudent = async (req, res, next) => {
   try {
     const studentData = req.body;
@@ -39,7 +63,6 @@ exports.createStudent = async (req, res, next) => {
   }
 };
 
-// Naya function add kiya gaya hai: Single student ID ke zariye data laane ke liye
 exports.getStudentById = async (req, res, next) => {
   try {
     const student = await Student.findOne({
@@ -65,28 +88,48 @@ exports.getStudentById = async (req, res, next) => {
 
 exports.getStudents = async (req, res, next) => {
   try {
-    // 🛡️ Safe Pagination Sanitization Rules
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const requestedLimit = Number.parseInt(req.query.limit, 10) || 10;
     const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
 
-    const students = await Student.find({ deletedAt: null })
-      .select(
-        "_id admissionNo firstName lastName gender className section mobile status photo createdAt"
-      )
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const searchKeyword = req.query.search || req.query.q || "";
 
-    const total = await Student.countDocuments({ deletedAt: null });
+    const searchFilter = buildMultiFieldSearch(searchKeyword, [
+      "firstName",
+      "lastName",
+      "admissionNo",
+      "mobile",
+      "className",
+      "section",
+    ]);
+
+    const filter = {
+      deletedAt: null,
+      ...searchFilter,
+    };
+
+    const [students, total] = await Promise.all([
+      Student.find(filter)
+        .select(
+          "_id admissionNo firstName lastName gender className section mobile status photo createdAt"
+        )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Student.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
 
     res.json({
       success: true,
       page,
       limit,
       total,
+      totalPages,
       students,
     });
   } catch (err) {
@@ -106,87 +149,21 @@ exports.searchStudent = async (req, res, next) => {
       });
     }
 
-    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const searchTerms = escapedKeyword.split(/\s+/).filter(Boolean);
+    const searchFilter = buildMultiFieldSearch(keyword, [
+      "firstName",
+      "lastName",
+      "admissionNo",
+      "mobile",
+    ]);
 
-    let searchQuery;
-
-    if (searchTerms.length === 1) {
-      searchQuery = {
-        deletedAt: null,
-        $or: [
-          {
-            firstName: {
-              $regex: searchTerms[0],
-              $options: "i",
-            },
-          },
-          {
-            lastName: {
-              $regex: searchTerms[0],
-              $options: "i",
-            },
-          },
-          {
-            admissionNo: {
-              $regex: searchTerms[0],
-              $options: "i",
-            },
-          },
-        ],
-      };
-    } else {
-      const firstTerm = searchTerms[0];
-      const remainingTerms = searchTerms.slice(1);
-
-      searchQuery = {
-        deletedAt: null,
-        $or: [
-          {
-            $and: [
-              {
-                firstName: {
-                  $regex: firstTerm,
-                  $options: "i",
-                },
-              },
-              ...remainingTerms.map((term) => ({
-                lastName: {
-                  $regex: term,
-                  $options: "i",
-                },
-              })),
-            ],
-          },
-          {
-            $and: [
-              {
-                lastName: {
-                  $regex: firstTerm,
-                  $options: "i",
-                },
-              },
-              ...remainingTerms.map((term) => ({
-                firstName: {
-                  $regex: term,
-                  $options: "i",
-                },
-              })),
-            ],
-          },
-          {
-            admissionNo: {
-              $regex: escapedKeyword,
-              $options: "i",
-            },
-          },
-        ],
-      };
-    }
+    const searchQuery = {
+      deletedAt: null,
+      ...searchFilter,
+    };
 
     const students = await Student.find(searchQuery)
       .select(
-        "_id admissionNo firstName lastName gender className section mobile status"
+        "_id admissionNo firstName lastName gender className section mobile status photo"
       )
       .limit(20)
       .lean();
@@ -349,21 +326,31 @@ exports.getDeletedStudents = async (req, res, next) => {
     );
     const skip = (page - 1) * limit;
 
+    const searchKeyword = String(req.query.search || "").trim();
+
+    const searchFilter = buildMultiFieldSearch(searchKeyword, [
+      "firstName",
+      "lastName",
+      "admissionNo",
+      "mobile",
+    ]);
+
+    const filter = {
+      deletedAt: { $ne: null },
+      ...searchFilter,
+    };
+
     const [students, total] = await Promise.all([
-      Student.find({
-        deletedAt: { $ne: null },
-      })
+      Student.find(filter)
         .select(
-          "_id admissionNo firstName lastName gender className section mobile status deletedAt createdAt"
+          "_id admissionNo firstName lastName gender className section mobile status photo deletedAt createdAt"
         )
         .sort({ deletedAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
 
-      Student.countDocuments({
-        deletedAt: { $ne: null },
-      }),
+      Student.countDocuments(filter),
     ]);
 
     res.json({
@@ -371,7 +358,7 @@ exports.getDeletedStudents = async (req, res, next) => {
       page,
       limit,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit) || 1,
       students,
     });
   } catch (err) {

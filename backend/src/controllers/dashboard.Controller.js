@@ -12,17 +12,45 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
   const result = await cacheService.remember(
     redisKeys.dashboardStats(),
     async () => {
-      const totalTeachers = await Teacher.countDocuments({ deletedAt: null });
-      const totalStudents = await Student.countDocuments({ deletedAt: null });
-      const activeTeachers = await Teacher.countDocuments({
-        status: "Active",
-        deletedAt: null,
-      });
+      const [
+        totalTeachers,
+        activeTeachers,
+        inactiveTeachers,
+        totalStudents,
+        activeStudents,
+        inactiveStudents,
+      ] = await Promise.all([
+        Teacher.countDocuments({
+          deletedAt: null,
+        }),
+        Teacher.countDocuments({
+          status: "Active",
+          deletedAt: null,
+        }),
+        Teacher.countDocuments({
+          status: "Inactive",
+          deletedAt: null,
+        }),
+        Student.countDocuments({
+          deletedAt: null,
+        }),
+        Student.countDocuments({
+          status: "Active",
+          deletedAt: null,
+        }),
+        Student.countDocuments({
+          status: "Inactive",
+          deletedAt: null,
+        }),
+      ]);
 
       return {
         totalTeachers,
         activeTeachers,
+        inactiveTeachers,
         totalStudents,
+        activeStudents,
+        inactiveStudents,
       };
     },
     cacheTtl.DASHBOARD_STATS // 60s TTL from constants

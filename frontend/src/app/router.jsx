@@ -8,10 +8,18 @@ import AuthLayout from "../layouts/AuthLayout";
 import PublicLayout from "../layouts/PublicLayout";
 
 import AddStudentPage from "../pages/admin/AddStudentPage";
-import EditStudentPage from "../pages/admin/EditStudentPage"; // Yahan import kiya
+import AddTeacherPage from "../pages/admin/AddTeacherPage";
+import AddParentPage from "../pages/admin/AddParentPage";
+import EditStudentPage from "../pages/admin/EditStudentPage";
+import EditTeacherPage from "../pages/admin/EditTeacherPage";
+import EditParentPage from "../pages/admin/EditParentPage";
 import DashboardPage from "../pages/admin/DashboardPage";
 import DeletedStudentsPage from "../pages/admin/DeletedStudentsPage";
+import DeletedTeachersPage from "../pages/admin/DeletedTeachersPage";
+import DeletedParentsPage from "../pages/admin/DeletedParentsPage"; // Added DeletedParentsPage import
 import StudentsPage from "../pages/admin/StudentsPage";
+import TeachersPage from "../pages/admin/TeachersPage";
+import ParentsPage from "../pages/admin/ParentsPage";
 import LoginPage from "../pages/auth/LoginPage";
 import HomePage from "../pages/public/HomePage";
 
@@ -61,12 +69,44 @@ const router = createBrowserRouter([
                 element: <AddStudentPage />,
               },
               {
+                path: "teachers",
+                element: <TeachersPage />,
+              },
+              {
+                path: "teachers/new",
+                element: <AddTeacherPage />,
+              },
+              {
+                path: "parents",
+                element: <ParentsPage />,
+              },
+              {
+                path: "parents/new",
+                element: <AddParentPage />,
+              },
+              {
+                path: "parents/deleted", // Added deleted parents route
+                element: <DeletedParentsPage />,
+              },
+              {
+                path: "parents/:id/edit",
+                element: <EditParentPage />,
+              },
+              {
                 path: "students/deleted",
                 element: <DeletedStudentsPage />,
               },
               {
-                path: "students/:id/edit", // Naya Edit Student route add kiya
+                path: "teachers/deleted",
+                element: <DeletedTeachersPage />,
+              },
+              {
+                path: "students/:id/edit",
                 element: <EditStudentPage />,
+              },
+              {
+                path: "teachers/:id/edit",
+                element: <EditTeacherPage />,
               },
             ],
           },
