@@ -108,6 +108,17 @@ exports.generateFee = async (req, res) => {
         message: error.message,
       });
     }
+
+    // MongoDB duplicate-key error.
+    // The monthly fee compound index prevents duplicate
+    // fees for the same student/month/year combination.
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "A fee already exists for this student, month, year, and fee type",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -173,6 +184,13 @@ exports.markPaid = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Payment not found",
+      });
+    }
+
+    if (payment.status === "Paid") {
+      return res.status(409).json({
+        success: false,
+        message: "Fee payment is already marked as paid",
       });
     }
 
