@@ -9,7 +9,7 @@ const cacheInvalidationService = require("../services/cacheInvalidation.service"
 const asyncHandler = require("../middleware/async.Handler");
 
 const TEACHER_SELECT_FIELDS =
-  "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary status createdAt";
+    "_id employeeId firstName lastName gender email mobile qualification experience classTeacher joiningDate salary status photo createdAt";
 
 // Helper function for multi-word safe regex search
 const buildMultiFieldSearch = (search = "", fields = []) => {

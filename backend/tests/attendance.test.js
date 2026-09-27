@@ -80,16 +80,7 @@ beforeEach(async () => {
     await redisClient.flushDb();
   }
 
-  await Attendance.deleteMany({
-    student: {
-      $in: await Student.find(
-        {
-          admissionNo: { $regex: `^${TEST_PREFIX}-` },
-        },
-        { _id: 1 },
-      ).then((students) => students.map((student) => student._id)),
-    },
-  });
+  await Attendance.deleteMany({ });
 
   await Student.deleteMany({
     admissionNo: { $regex: `^${TEST_PREFIX}-` },
@@ -354,6 +345,39 @@ describe("Attendance API — listing", () => {
     expect(response.body.attendance[0].status).toBe("Absent");
   });
 
+  test("handles UTC day boundaries correctly", async () => {
+    const student = await Student.create(studentPayload("001"));
+
+    await Attendance.create([
+      {
+        student: student._id,
+        className: TEST_CLASS,
+        date: new Date("2026-06-24T23:59:59.999Z"),
+        status: "Present",
+      },
+      {
+        student: student._id,
+        className: TEST_CLASS,
+        date: new Date("2026-06-25T00:00:00.000Z"),
+        status: "Absent",
+      },
+    ]);
+
+    const response = await request(app)
+      .get(
+        `/api/v1/attendance?date=2026-06-24&className=${encodeURIComponent(TEST_CLASS)}`,
+      )
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body.total).toBe(1);
+    expect(response.body.attendance).toHaveLength(1);
+    expect(response.body.attendance[0].status).toBe("Present");
+    expect(
+      new Date(response.body.attendance[0].date).toISOString(),
+    ).toBe("2026-06-24T23:59:59.999Z");
+  });
+
   test("does not return attendance for soft-deleted students", async () => {
     const activeStudent = await Student.create(studentPayload("001"));
 
@@ -410,6 +434,41 @@ describe("Attendance API — bulk attendance", () => {
     expect(response.body.success).toBe(true);
     expect(response.body.total).toBe(2);
     expect(response.body.attendance).toHaveLength(2);
+  });
+
+  test("handles UTC day boundaries correctly", async () => {
+    const student1 = await Student.create(studentPayload("003"));
+    const student2 = await Student.create(studentPayload("004"));
+
+    await Attendance.create({
+      student: student1._id,
+      className: student1.className,
+      date: new Date("2026-06-24T23:59:59.999Z"),
+      status: "Present",
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attendance/bulk")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        date: "2026-06-24",
+        attendanceData: [
+          { studentId: student2._id.toString(), status: "Present" },
+        ],
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.attendance[0].date).toBe(
+      "2026-06-24T00:00:00.000Z",
+    );
+
+    await expect(
+      Attendance.findOne({
+        student: student2._id,
+        date: new Date("2026-06-24T00:00:00.000Z"),
+      }),
+    ).resolves.toBeTruthy();
   });
 
   test("rejects bulk attendance if duplicate student IDs are provided", async () => {
@@ -622,6 +681,38 @@ describe("Attendance API — student attendance", () => {
     expect(response.body.attendance).toHaveLength(1);
     expect(response.body.attendance[0].status).toBe("Absent");
   });
+
+  test("handles UTC day boundaries for student attendance", async () => {
+    const student = await Student.create(studentPayload("001"));
+
+    await Attendance.create([
+      {
+        student: student._id,
+        className: student.className,
+        date: new Date("2026-06-25T23:59:59.999Z"),
+        status: "Present",
+      },
+      {
+        student: student._id,
+        className: student.className,
+        date: new Date("2026-06-26T00:00:00.000Z"),
+        status: "Absent",
+      },
+    ]);
+
+    const response = await request(app)
+      .get(`/api/v1/attendance/student/${student._id}?date=2026-06-25`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body.total).toBe(1);
+    expect(response.body.attendance).toHaveLength(1);
+    expect(response.body.attendance[0].status).toBe("Present");
+    expect(
+      new Date(response.body.attendance[0].date).toISOString(),
+    ).toBe("2026-06-25T23:59:59.999Z");
+  });
+
 });
 
 describe("Attendance API — attendance percentage & stats", () => {
@@ -718,6 +809,50 @@ describe("Attendance API — attendance percentage & stats", () => {
     expect(response.body.todayLeave).toBe(0);
     expect(response.body.attendancePercentage).toBe(100);
   });
+  test("handles UTC day boundaries for attendance stats", async () => {
+    const student1 = await Student.create(studentPayload("003"));
+    const student2 = await Student.create(studentPayload("004"));
+
+    const now = new Date();
+
+    const startOfToday = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+      ),
+    );
+
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setUTCDate(startOfTomorrow.getUTCDate() + 1);
+
+    const endOfToday = new Date(startOfTomorrow.getTime() - 1);
+
+    await Attendance.create([
+      {
+        student: student1._id,
+        className: student1.className,
+        date: endOfToday,
+        status: "Present",
+      },
+      {
+        student: student2._id,
+        className: student2.className,
+        date: startOfTomorrow,
+        status: "Absent",
+      },
+    ]);
+
+    const response = await request(app)
+      .get("/api/v1/attendance/stats")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.todayPresent).toBe(1);
+    expect(response.body.todayAbsent).toBe(0);
+  });
+
 });
 
 describe("Attendance API — monthly attendance", () => {
@@ -769,6 +904,47 @@ describe("Attendance API — monthly attendance", () => {
       expect(new Date(record.date).getUTCMonth()).toBe(5);
       expect(new Date(record.date).getUTCFullYear()).toBe(2026);
     });
+  });
+
+  test("handles UTC month boundaries correctly", async () => {
+    const adminUser = await User.findOne({ email: TEST_ADMIN_EMAIL });
+    const student = await Student.create({
+      ...studentPayload("001"),
+      className: TEST_CLASS,
+    });
+
+    await Attendance.create([
+      {
+        student: student._id,
+        className: TEST_CLASS,
+        date: new Date("2026-06-30T23:59:59.999Z"),
+        status: "Present",
+        markedBy: adminUser._id,
+      },
+      {
+        student: student._id,
+        className: TEST_CLASS,
+        date: new Date("2026-07-01T00:00:00.000Z"),
+        status: "Absent",
+        markedBy: adminUser._id,
+      },
+    ]);
+
+    const response = await request(app)
+      .get(
+        `/api/v1/attendance/monthly?month=6&year=2026&className=${encodeURIComponent(TEST_CLASS)}`,
+      )
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(response.body.total).toBe(1);
+    expect(response.body.attendance).toHaveLength(1);
+    expect(response.body.attendance[0].status).toBe("Present");
+
+    expect(
+      new Date(response.body.attendance[0].date).toISOString(),
+    ).toBe("2026-06-30T23:59:59.999Z");
   });
 
   test("filters monthly attendance by student", async () => {

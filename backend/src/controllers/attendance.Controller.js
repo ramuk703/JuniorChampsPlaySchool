@@ -96,22 +96,37 @@ const getAttendance = async (req, res) => {
     const filter = {};
 
     if (date) {
-      const startDate = new Date(date);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
 
-      if (Number.isNaN(startDate.getTime())) {
+      if (!match) {
         return res.status(400).json({
           success: false,
           message: "Invalid date",
         });
       }
 
-      startDate.setHours(0, 0, 0, 0);
+      const [, yearText, monthText, dayText] = match;
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
 
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 1);
+      const startDate = new Date(Date.UTC(year, month - 1, day));
+      const endDate = new Date(Date.UTC(year, month - 1, day + 1));
+
+      if (
+        startDate.getUTCFullYear() !== year ||
+        startDate.getUTCMonth() !== month - 1 ||
+        startDate.getUTCDate() !== day
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date",
+        });
+      }
 
       filter.date = {
-        $gte: startDate,$lt: endDate,
+        $gte: startDate,
+        $lt: endDate,
       };
     }
 
@@ -263,22 +278,37 @@ const getStudentAttendance = async (req, res) => {
     };
 
     if (date) {
-      const startDate = new Date(date);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
 
-      if (Number.isNaN(startDate.getTime())) {
+      if (!match) {
         return res.status(400).json({
           success: false,
           message: "Invalid date",
         });
       }
 
-      startDate.setHours(0, 0, 0, 0);
+      const [, yearText, monthText, dayText] = match;
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
 
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 1);
+      const startDate = new Date(Date.UTC(year, month - 1, day));
+      const endDate = new Date(Date.UTC(year, month - 1, day + 1));
+
+      if (
+        startDate.getUTCFullYear() !== year ||
+        startDate.getUTCMonth() !== month - 1 ||
+        startDate.getUTCDate() !== day
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date",
+        });
+      }
 
       filter.date = {
-        $gte: startDate,$lt: endDate,
+        $gte: startDate,
+        $lt: endDate,
       };
     }
 
@@ -369,23 +399,11 @@ const monthlyAttendance = async (req, res) => {
     }
 
     const startOfMonth = new Date(
-      yearNumber,
-      monthNumber - 1,
-      1,
-      0,
-      0,
-      0,
-      0,
+      Date.UTC(yearNumber, monthNumber - 1, 1),
     );
 
     const startOfNextMonth = new Date(
-      yearNumber,
-      monthNumber,
-      1,
-      0,
-      0,
-      0,
-      0,
+      Date.UTC(yearNumber, monthNumber, 1),
     );
 
     const filter = {
@@ -526,22 +544,50 @@ const bulkAttendance = async (req, res) => {
   try {
     const { date: requestedDate, attendanceData } = req.body;
 
-    const attendanceDate = requestedDate
-      ? new Date(requestedDate)
-      : new Date();
+    let attendanceDate;
 
-    if (Number.isNaN(attendanceDate.getTime())) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid attendance date",
-      });
+    if (requestedDate) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(requestedDate);
+
+      if (!match) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid attendance date",
+        });
+      }
+
+      const [, yearText, monthText, dayText] = match;
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+
+      attendanceDate = new Date(Date.UTC(year, month - 1, day));
+
+      if (
+        attendanceDate.getUTCFullYear() !== year ||
+        attendanceDate.getUTCMonth() !== month - 1 ||
+        attendanceDate.getUTCDate() !== day
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid attendance date",
+        });
+      }
+    } else {
+      const now = new Date();
+
+      attendanceDate = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+        ),
+      );
     }
-
-    attendanceDate.setHours(0, 0, 0, 0);
 
     const startOfDay = new Date(attendanceDate);
     const endOfDay = new Date(attendanceDate);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
 
     const studentIds = attendanceData.map((item) => item.studentId);
 
@@ -808,14 +854,6 @@ const getAttendanceCalendar = async (req, res) => {
     const startOfMonth = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1));
     const startOfNextMonth = new Date(Date.UTC(parsedYear, parsedMonth, 1));
 
-    // Step 7C - Diagnose calendar date boundary
-    console.log("CALENDAR DEBUG", {
-      parsedMonth,
-      parsedYear,
-      startOfMonth,
-      startOfNextMonth,
-    });
-
     const attendanceRecords = await Attendance.find({
       student: studentObjectId,
       date: {
@@ -850,11 +888,18 @@ const getAttendanceCalendar = async (req, res) => {
 // 8. Attendance Analytics (Hardened with Aggregation)
 const attendanceStats = async (req, res) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const now = new Date();
+
+    const startOfToday = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+      ),
+    );
 
     const startOfTomorrow = new Date(startOfToday);
-    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    startOfTomorrow.setUTCDate(startOfTomorrow.getUTCDate() + 1);
 
     const pipeline = [
       {

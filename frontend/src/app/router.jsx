@@ -20,6 +20,7 @@ import DeletedParentsPage from "../pages/admin/DeletedParentsPage"; // Added Del
 import StudentsPage from "../pages/admin/StudentsPage";
 import TeachersPage from "../pages/admin/TeachersPage";
 import ParentsPage from "../pages/admin/ParentsPage";
+import AttendancePage from "../pages/admin/AttendancePage";
 import LoginPage from "../pages/auth/LoginPage";
 import HomePage from "../pages/public/HomePage";
 
@@ -79,6 +80,10 @@ const router = createBrowserRouter([
               {
                 path: "parents",
                 element: <ParentsPage />,
+              },
+              {
+                path: "attendance",
+                element: <AttendancePage />,
               },
               {
                 path: "parents/new",
