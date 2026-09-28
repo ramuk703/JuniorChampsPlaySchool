@@ -36,8 +36,13 @@ const navigation = [
     icon: FiUsers,
   },
   {
-    label: "Attendance",
+    label: "Student Attendance",
     to: "/admin/attendance",
+    icon: FiCalendar,
+  },
+  {
+    label: "Teacher Attendance",
+    to: "/admin/teacher-attendance",
     icon: FiCalendar,
   },
   {

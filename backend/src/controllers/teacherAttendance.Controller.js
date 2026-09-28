@@ -72,7 +72,7 @@ exports.getTeacherAttendance = async (req, res) => {
       .select("_id teacher date status remarks createdAt")
       .populate({
         path: "teacher",
-        select: "_id firstName lastName email",
+        select: "_id firstName lastName email photo",
         match: { deletedAt: null },
       })
       .lean();

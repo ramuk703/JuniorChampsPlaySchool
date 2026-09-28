@@ -20,6 +20,21 @@ const getToday = () => {
   ].join("-");
 };
 
+const getPhotoUrl = (photo) => {
+  if (!photo) return "";
+
+  if (/^https?:\/\//i.test(photo)) {
+    return photo;
+  }
+
+  const apiUrl =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+
+  const baseUrl = apiUrl.replace(/\/api\/v1\/?$/, "");
+
+  return `${baseUrl}/${String(photo).replace(/^\/+/, "")}`;
+};
+
 function MarkAttendanceForm({ onSuccess }) {
   const [form, setForm] = useState({
     date: getToday(),
@@ -157,33 +172,78 @@ function MarkAttendanceForm({ onSuccess }) {
             Student
           </label>
 
-          <select
-            id="attendance-student"
-            name="studentId"
-            value={form.studentId}
-            onChange={handleChange}
-            required
-            disabled={isStudentsLoading}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50"
-          >
-            <option value="">
-              {isStudentsLoading
-                ? "Loading students..."
-                : "Select a student"}
-            </option>
+          <div className="space-y-2">
+            {isStudentsLoading ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                Loading students...
+              </div>
+            ) : !studentSearch.trim() ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                Start typing to search for a student.
+              </p>
+            ) : students.length ? (
+              <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
+                {students.map((student) => {
+                  const fullName =
+                    `${student.firstName || ""} ${student.lastName || ""}`.trim();
 
-            {students.map((student) => {
-              const fullName =
-                `${student.firstName || ""} ${student.lastName || ""}`.trim();
+                  const isSelected = form.studentId === student._id;
 
-              return (
-                <option key={student._id} value={student._id}>
-                  {fullName || "Unnamed Student"} —{" "}
-                  {student.admissionNo || "No admission no."}
-                </option>
-              );
-            })}
-          </select>
+                  return (
+                    <button
+                      key={student._id}
+                      type="button"
+                      onClick={() =>
+                        handleChange({
+                          target: {
+                            name: "studentId",
+                            value: student._id,
+                          },
+                        })
+                      }
+                      className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-transparent hover:border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {student.photo ? (
+                        <img
+                          src={getPhotoUrl(student.photo)}
+                          alt={fullName || "Student"}
+                          className="h-10 w-10 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                          {(student.firstName || "S").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">
+                          {fullName || "Unnamed Student"}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {student.admissionNo || "No admission no."}
+                          {student.className ? ` • ${student.className}` : ""}
+                        </p>
+                      </div>
+
+                      {isSelected ? (
+                        <span className="text-xs font-semibold text-blue-600">
+                          Selected
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                No students found.
+              </p>
+            )}
+          </div>
 
           {!isStudentsLoading && !students.length && (
             <p className="mt-1.5 text-xs text-slate-500">

@@ -21,6 +21,8 @@ import StudentsPage from "../pages/admin/StudentsPage";
 import TeachersPage from "../pages/admin/TeachersPage";
 import ParentsPage from "../pages/admin/ParentsPage";
 import AttendancePage from "../pages/admin/AttendancePage";
+import FeesPage from "../pages/admin/FeesPage";
+import TeacherAttendancePage from "../pages/admin/TeacherAttendancePage";
 import LoginPage from "../pages/auth/LoginPage";
 import HomePage from "../pages/public/HomePage";
 
@@ -84,6 +86,14 @@ const router = createBrowserRouter([
               {
                 path: "attendance",
                 element: <AttendancePage />,
+              },
+              {
+                path: "fees",
+                element: <FeesPage />,
+              },
+              {
+                path: "teacher-attendance",
+                element: <TeacherAttendancePage />,
               },
               {
                 path: "parents/new",
