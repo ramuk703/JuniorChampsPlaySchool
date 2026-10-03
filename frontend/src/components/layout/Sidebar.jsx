@@ -50,6 +50,11 @@ const navigation = [
     to: "/admin/fees",
     icon: FiCreditCard,
   },
+{
+  label: "Fee Structures",
+  to: "/admin/fee-structures",
+  icon: FiCreditCard,
+},
   {
     label: "Payments",
     to: "/admin/payments",

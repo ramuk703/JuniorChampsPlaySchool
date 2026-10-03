@@ -1,3 +1,6 @@
+const Attendance = require("../src/models/Attendance");
+const FeePayment = require("../src/models/FeePayment");
+const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const mongoose = require("mongoose");
 
@@ -463,5 +466,140 @@ describe("Parent API — restore", () => {
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("Parent API — dashboard", () => {
+  test("returns the logged-in parent's linked student dashboard", async () => {
+    const student = await Student.create({
+      firstName: "Dashboard",
+      lastName: "Student",
+      admissionNo: `DASH-${Date.now()}`,
+      className: "Nursery",
+      section: "A",
+      gender: "Male",
+      dob: new Date("2021-01-15"),
+      fatherName: "Dashboard Father",
+      motherName: "Dashboard Mother",
+      mobile: "9876543210",
+      address: "Dashboard Test Address",
+    });
+
+    const email = `dashboard-parent-${Date.now()}@example.com`;
+
+    const parent = await Parent.create({
+      fatherName: "Dashboard Father",
+      motherName: "Dashboard Mother",
+      email,
+      mobile: "9876543210",
+      password: "Password@123",
+      address: "Dashboard Parent Address",
+      student: student._id,
+    });
+
+    const token = generateToken(
+      parent._id,
+      "parent",
+      parent.tokenVersion
+    );
+
+    await Attendance.create([
+      {
+        student: student._id,
+        className: student.className,
+        date: new Date("2026-09-01T00:00:00.000Z"),
+        status: "Present",
+      },
+      {
+        student: student._id,
+        className: student.className,
+        date: new Date("2026-09-02T00:00:00.000Z"),
+        status: "Present",
+      },
+      {
+        student: student._id,
+        className: student.className,
+        date: new Date("2026-09-03T00:00:00.000Z"),
+        status: "Absent",
+      },
+      {
+        student: student._id,
+        className: student.className,
+        date: new Date("2026-09-04T00:00:00.000Z"),
+        status: "Leave",
+      },
+    ]);
+
+    await FeePayment.create([
+      {
+        student: student._id,
+        month: 9,
+        year: 2026,
+        feeType: "Monthly",
+        amount: 600,
+        totalAmount: 600,
+        status: "Paid",
+        paymentMethod: "Cash",
+        paymentDate: new Date("2026-09-05T00:00:00.000Z"),
+        receiptNumber: `DASH-PAID-${Date.now()}`,
+      },
+      {
+        student: student._id,
+        month: 10,
+        year: 2026,
+        feeType: "Monthly",
+        amount: 600,
+        totalAmount: 600,
+        status: "Pending",
+        paymentMethod: "Cash",
+      },
+    ]);
+
+    const response = await request(app)
+      .get("/api/v1/parents/dashboard")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+
+    expect(response.body.parent).toMatchObject({
+      fatherName: "Dashboard Father",
+      motherName: "Dashboard Mother",
+      email,
+    });
+
+    expect(response.body.student).toMatchObject({
+      _id: student._id.toString(),
+      firstName: "Dashboard",
+      lastName: "Student",
+      admissionNo: expect.any(String),
+    });
+
+    expect(response.body.attendance).toMatchObject({
+      total: 4,
+      present: 2,
+      absent: 1,
+      leave: 1,
+      percentage: 50,
+    });
+
+    expect(response.body.fees).toMatchObject({
+      total: 2,
+      paid: 1,
+      pending: 1,
+      totalAmount: 1200,
+      paidAmount: 600,
+      pendingAmount: 600,
+    });
+
+    expect(response.body.fees.recentPayments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          feeType: "Monthly",
+          totalAmount: 600,
+          paymentMethod: "Cash",
+        }),
+      ])
+    );
   });
 });

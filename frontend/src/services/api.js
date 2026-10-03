@@ -10,7 +10,11 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const isParentRequest = config.url?.startsWith("/parents/");
+
+    const token = isParentRequest
+      ? localStorage.getItem("parentAccessToken")
+      : localStorage.getItem("accessToken");
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -29,8 +33,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("authUser");
+      const isParentRequest = error.config?.url?.startsWith("/parents/");
+
+      if (isParentRequest) {
+        localStorage.removeItem("parentAccessToken");
+        localStorage.removeItem("parentUser");
+      } else {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("authUser");
+      }
     }
 
     return Promise.reject(error);

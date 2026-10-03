@@ -1,6 +1,9 @@
 const express = require("express");
 
 const router = express.Router();
+const {
+  getParentPaymentConfig,
+} = require("../controllers/parentPayment.Controller");
 
 const {
   registerParent,
@@ -15,6 +18,10 @@ const {
   deleteParent,
   getDeletedParents,
   restoreParent,
+  getParentFees,
+  getParentFeeById,
+  createParentPaymentOrder,
+  verifyParentPayment,
 } = require("../controllers/parent.Controller");
 
 const { protectParent, protect } = require("../middleware/auth.Middleware");
@@ -62,6 +69,30 @@ router.post(
 );
 
 router.get("/dashboard", protectParent, dashboard);
+
+router.get("/payment-config", protectParent, getParentPaymentConfig);
+router.get("/fees", protectParent, getParentFees);
+
+router.get(
+  "/fees/:id",
+  protectParent,
+  getParentFeeById
+);
+
+router.post(
+  "/fees/:id/create-order",
+  protectParent,
+  sensitiveLimiter,
+  createParentPaymentOrder
+);
+
+router.post(
+  "/fees/:id/verify",
+  protectParent,
+  sensitiveLimiter,
+  verifyParentPayment
+);
+
 
 router.patch(
   "/password",

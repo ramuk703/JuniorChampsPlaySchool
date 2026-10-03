@@ -3,12 +3,14 @@ import api from "./api";
 export const getFees = async ({
   page = 1,
   limit = 20,
+  search = "",
 } = {}) => {
   const response = await api.get("/fees", {
     params: {
-      page,
-      limit,
-    },
+  page,
+  limit,
+  ...(search.trim() ? { search: search.trim() } : {}),
+},
   });
 
   return response.data;

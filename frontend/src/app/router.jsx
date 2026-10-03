@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 
 import AdminRoute from "../components/auth/AdminRoute";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
+import ParentRoute from "../components/auth/ParentRoute";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AuthLayout from "../layouts/AuthLayout";
@@ -22,8 +23,14 @@ import TeachersPage from "../pages/admin/TeachersPage";
 import ParentsPage from "../pages/admin/ParentsPage";
 import AttendancePage from "../pages/admin/AttendancePage";
 import FeesPage from "../pages/admin/FeesPage";
+import FeeStructuresPage from "../pages/admin/FeeStructuresPage";
 import TeacherAttendancePage from "../pages/admin/TeacherAttendancePage";
 import LoginPage from "../pages/auth/LoginPage";
+import ParentLoginPage from "../pages/parent/ParentLoginPage";
+import ParentDashboardPage from "../pages/parent/ParentDashboardPage";
+import ParentAttendancePage from "../pages/parent/ParentAttendancePage";
+import ParentFeesPage from "../pages/parent/ParentFeesPage";
+import ParentChildPage from "../pages/parent/ParentChildPage";
 import HomePage from "../pages/public/HomePage";
 
 const router = createBrowserRouter([
@@ -45,6 +52,39 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <LoginPage />,
+      },
+    ],
+  },
+
+  {
+    path: "/parent/login",
+    element: <AuthLayout />,
+    children: [
+      {
+        index: true,
+        element: <ParentLoginPage />,
+      },
+    ],
+  },
+
+  {
+    element: <ParentRoute />,
+    children: [
+      {
+        path: "/parent",
+        element: <ParentDashboardPage />,
+      },
+      {
+        path: "/parent/child",
+        element: <ParentChildPage />,
+      },
+      {
+        path: "/parent/attendance",
+        element: <ParentAttendancePage />,
+      },
+      {
+        path: "/parent/fees",
+        element: <ParentFeesPage />,
       },
     ],
   },
@@ -91,6 +131,10 @@ const router = createBrowserRouter([
                 path: "fees",
                 element: <FeesPage />,
               },
+              {
+                 path: "fee-structures",
+                element: <FeeStructuresPage />,
+            },
               {
                 path: "teacher-attendance",
                 element: <TeacherAttendancePage />,

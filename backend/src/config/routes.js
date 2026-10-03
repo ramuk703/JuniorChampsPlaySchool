@@ -17,6 +17,11 @@ module.exports = (app) => {
 
   app.use("/api/v1/attendance", require("../routes/attendance.Routes"));
   app.use("/api/v1/fees", require("../routes/fee.Routes"));
+  app.use("/api/v1/payments", require("../routes/payment.Routes"));
+  // 👇 Fee Structure Routes Added Here 👇
+  const feeStructureRoutes = require("../routes/feeStructure.Routes");
+  app.use("/api/v1/fee-structures", feeStructureRoutes);
+
   app.use("/api/v1/parents", require("../routes/parent.Routes"));
   app.use(
     "/api/v1/teacher-attendance",

@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const razorpay = require("../config/razorpay");
+const { razorpaySecret, razorpayKey } = require("../config/env");
+const crypto = require("crypto");
 const Parent = require("../models/Parent");
 const auditLog = require("../utils/auditLog");
 const generateToken = require("../utils/generateToken");
@@ -198,9 +201,13 @@ exports.loginParent = async (req, res) => {
 // 3. Parent Dashboard
 exports.dashboard = async (req, res) => {
   try {
-    const parent = await Parent.findById(req.user._id);
+    const parent = await Parent.findOne({
+      _id: req.user._id,
+      deletedAt: null,
+    })
+      .select("_id fatherName motherName email mobile address student")
+      .lean();
 
-    // Defensive check if parent doesn't exist (Step 5.6.2-D)
     if (!parent) {
       return res.status(404).json({
         success: false,
@@ -211,7 +218,11 @@ exports.dashboard = async (req, res) => {
     const student = await Student.findOne({
       _id: parent.student,
       deletedAt: null,
-    });
+    })
+      .select(
+        "_id admissionNo firstName lastName gender dob className section photo status"
+      )
+      .lean();
 
     if (!student) {
       return res.status(404).json({
@@ -220,29 +231,478 @@ exports.dashboard = async (req, res) => {
       });
     }
 
-    const attendance = await Attendance.countDocuments({
-      student: student._id,
-      status: "Present",
-    });
+    const [attendanceSummary, feeSummary, recentPayments] =
+      await Promise.all([
+        Attendance.aggregate([
+          {
+            $match: {
+              student: student._id,
+            },
+          },
+          {
+            $group: {
+              _id: "$status",
+              count: { $sum: 1 },
+            },
+          },
+        ]),
 
-    const pendingFees = await FeePayment.countDocuments({
-      student: student._id,
-      status: "Pending",
-    });
+        FeePayment.aggregate([
+          {
+            $match: {
+              student: student._id,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              paid: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", "Paid"] }, 1, 0],
+                },
+              },
+              pending: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", "Pending"] }, 1, 0],
+                },
+              },
+              totalAmount: { $sum: "$totalAmount" },
+              paidAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$status", "Paid"] },
+                    "$totalAmount",
+                    0,
+                  ],
+                },
+              },
+              pendingAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$status", "Pending"] },
+                    "$totalAmount",
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ]),
 
-    res.json({
+        FeePayment.find({
+          student: student._id,
+          status: "Paid",
+        })
+          .select(
+            "_id month year feeType totalAmount paymentMethod receiptNumber paymentDate razorpayPaymentId"
+          )
+          .sort({ paymentDate: -1, createdAt: -1 })
+          .limit(5)
+          .lean(),
+      ]);
+
+    const attendance = {
+      total: 0,
+      present: 0,
+      absent: 0,
+      leave: 0,
+      percentage: 0,
+    };
+
+    for (const item of attendanceSummary) {
+      attendance.total += item.count;
+
+      if (item._id === "Present") {
+        attendance.present = item.count;
+      } else if (item._id === "Absent") {
+        attendance.absent = item.count;
+      } else if (item._id === "Leave") {
+        attendance.leave = item.count;
+      }
+    }
+
+    if (attendance.total > 0) {
+      attendance.percentage = Number(
+        ((attendance.present / attendance.total) * 100).toFixed(2)
+      );
+    }
+
+    const fees = {
+      total: 0,
+      paid: 0,
+      pending: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      pendingAmount: 0,
+    };
+
+    if (feeSummary[0]) {
+      fees.total = feeSummary[0].total;
+      fees.paid = feeSummary[0].paid;
+      fees.pending = feeSummary[0].pending;
+      fees.totalAmount = feeSummary[0].totalAmount;
+      fees.paidAmount = feeSummary[0].paidAmount;
+      fees.pendingAmount = feeSummary[0].pendingAmount;
+    }
+
+    fees.recentPayments = recentPayments;
+
+    return res.json({
       success: true,
+      parent: {
+        _id: parent._id,
+        fatherName: parent.fatherName,
+        motherName: parent.motherName,
+        email: parent.email,
+        mobile: parent.mobile,
+        address: parent.address,
+      },
       student,
       attendance,
-      pendingFees,
+      fees,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
+/*
+ * ============================================================
+ * PARENT FEES & PAYMENTS
+ * ============================================================
+ */
+
+/**
+ * Get all fee payments belonging only to the logged-in parent's child.
+ */
+exports.getParentFees = async (req, res) => {
+  try {
+    const parent = await Parent.findOne({
+      _id: req.user._id,
+      deletedAt: null,
+    })
+      .select("_id student")
+      .lean();
+
+    if (!parent) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent account not found",
+      });
+    }
+
+    if (!parent.student) {
+      return res.status(404).json({
+        success: false,
+        message: "No student is linked to this parent account",
+      });
+    }
+
+    const fees = await FeePayment.find({
+      student: parent.student,
+    })
+      .select(
+        "_id student month year feeType amount discount lateFee totalAmount paymentMethod status receiptNumber paymentDate razorpayOrderId razorpayPaymentId remarks createdAt updatedAt"
+      )
+      .sort({ year: -1, month: -1, createdAt: -1 })
+      .lean();
+
+    const summary = {
+      total: fees.length,
+      paid: 0,
+      pending: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      pendingAmount: 0,
+    };
+
+    for (const fee of fees) {
+      const amount = Number(fee.totalAmount) || 0;
+
+      summary.totalAmount += amount;
+
+      if (fee.status === "Paid") {
+        summary.paid += 1;
+        summary.paidAmount += amount;
+      } else if (fee.status === "Pending") {
+        summary.pending += 1;
+        summary.pendingAmount += amount;
+      }
+    }
+
+    return res.json({
+      success: true,
+      fees,
+      summary,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+/**
+ * Get one fee payment only when it belongs to the parent's child.
+ */
+exports.getParentFeeById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid fee payment ID",
+      });
+    }
+
+    const parent = await Parent.findOne({
+      _id: req.user._id,
+      deletedAt: null,
+    })
+      .select("_id student")
+      .lean();
+
+    if (!parent || !parent.student) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent or linked student not found",
+      });
+    }
+
+    const fee = await FeePayment.findOne({
+      _id: id,
+      student: parent.student,
+    })
+      .select(
+        "_id student month year feeType amount discount lateFee totalAmount paymentMethod status receiptNumber paymentDate razorpayOrderId razorpayPaymentId remarks createdAt updatedAt"
+      )
+      .lean();
+
+    if (!fee) {
+      return res.status(404).json({
+        success: false,
+        message: "Fee payment not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      fee,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+/**
+ * Create a Razorpay order for a fee belonging to the parent's child.
+ */
+exports.createParentPaymentOrder = async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(503).json({
+        success: false,
+        message: "Payment service is not configured.",
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid fee payment ID",
+      });
+    }
+
+    const parent = await Parent.findOne({
+      _id: req.user._id,
+      deletedAt: null,
+    })
+      .select("_id student")
+      .lean();
+
+    if (!parent || !parent.student) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent or linked student not found",
+      });
+    }
+
+    const payment = await FeePayment.findOne({
+      _id: id,
+      student: parent.student,
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Fee payment not found",
+      });
+    }
+
+    if (payment.status === "Paid") {
+      return res.status(409).json({
+        success: false,
+        message: "Fee payment is already marked as paid",
+      });
+    }
+
+    const amount = Number(payment.totalAmount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid fee payment amount",
+      });
+    }
+
+    const options = {
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      receipt: `JCPS-${payment._id}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    payment.razorpayOrderId = order.id;
+    payment.paymentMethod = "Razorpay";
+
+    await payment.save();
+
+    return res.json({
+      success: true,
+      order,
+      payment: {
+        id: payment._id,
+        amount: payment.totalAmount,
+      },
+      keyId: razorpayKey || null,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+/**
+ * Verify a parent Razorpay payment and mark only the linked child's
+ * fee payment as Paid.
+ */
+exports.verifyParentPayment = async (req, res) => {
+  try {
+    if (!razorpaySecret) {
+      return res.status(503).json({
+        success: false,
+        message: "Payment service is not configured.",
+      });
+    }
+
+    const { id } = req.params;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid fee payment ID",
+      });
+    }
+
+    const parent = await Parent.findOne({
+      _id: req.user._id,
+      deletedAt: null,
+    })
+      .select("_id student")
+      .lean();
+
+    if (!parent || !parent.student) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent or linked student not found",
+      });
+    }
+
+    const payment = await FeePayment.findOne({
+      _id: id,
+      student: parent.student,
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Fee payment not found",
+      });
+    }
+
+    if (payment.status === "Paid") {
+      return res.status(409).json({
+        success: false,
+        message: "Fee payment is already marked as paid",
+      });
+    }
+
+    if (
+      !payment.razorpayOrderId ||
+      payment.razorpayOrderId !== razorpay_order_id
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Razorpay order does not match this fee payment",
+      });
+    }
+
+    const generatedSignature = crypto
+      .createHmac("sha256", razorpaySecret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Payment",
+      });
+    }
+
+    payment.status = "Paid";
+    payment.paymentMethod = "Razorpay";
+    payment.razorpayOrderId = razorpay_order_id;
+    payment.razorpayPaymentId = razorpay_payment_id;
+    payment.razorpaySignature = razorpay_signature;
+    payment.paymentDate = new Date();
+
+    await payment.save();
+
+    return res.json({
+      success: true,
+      message: "Payment Verified",
+      payment,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 
 // 4. Change Parent Password
 exports.changePassword = async (req, res) => {

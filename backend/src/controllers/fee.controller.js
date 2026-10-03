@@ -127,6 +127,7 @@ exports.generateFee = async (req, res) => {
 };
 
 // 2. Get Payments (Optimized Parallel Query & Pagination)
+// 2. Get Payments (Search + Optimized Parallel Query & Pagination)
 exports.getPayments = async (req, res) => {
   try {
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -134,10 +135,38 @@ exports.getPayments = async (req, res) => {
     const limit = Math.min(100, Math.max(1, requestedLimit));
     const skip = (page - 1) * limit;
 
+    const search = String(req.query.search || "").trim();
+
+    let studentFilter = null;
+
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchRegex = new RegExp(escapedSearch, "i");
+
+      const matchingStudents = await Student.find({
+        deletedAt: null,
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { admissionNo: searchRegex },
+        ],
+      })
+        .select("_id")
+        .lean();
+
+      const studentIds = matchingStudents.map((student) => student._id);
+
+      studentFilter = {
+        student: { $in: studentIds },
+      };
+    }
+
+    const feeQuery = studentFilter || {};
+
     const [payments, total] = await Promise.all([
-      FeePayment.find()
+      FeePayment.find(feeQuery)
         .select(
-          "_id student month year feeType amount discount lateFee totalAmount status receiptNumber paymentMethod paymentDate createdAt paidBy"
+          "_id student month year feeType amount discount lateFee totalAmount status receiptNumber paymentMethod paymentDate createdAt paidBy razorpayOrderId razorpayPaymentId"
         )
         .populate({
           path: "student",
@@ -149,15 +178,16 @@ exports.getPayments = async (req, res) => {
         .limit(limit)
         .lean(),
 
-      FeePayment.countDocuments(),
+      FeePayment.countDocuments(feeQuery),
     ]);
 
     res.json({
       success: true,
       page,
       limit,
+      search,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
       payments,
     });
   } catch (error) {
