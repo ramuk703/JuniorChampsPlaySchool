@@ -8,6 +8,8 @@ const {
 const {
   registerParent,
   loginParent,
+  forgotPassword,
+  resetPassword,
   dashboard,
   changePassword,
   logoutParent,
@@ -32,6 +34,8 @@ const {
   registerParentValidation,
   loginParentValidation,
   changePasswordValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
 } = require("../validators/authValidator");
 
 const {
@@ -66,6 +70,22 @@ router.post(
   loginParentValidation,
   validate,
   loginParent
+);
+
+router.post(
+  "/forgot-password",
+  authLimiter,
+  forgotPasswordValidation,
+  validate,
+  forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  sensitiveLimiter,
+  resetPasswordValidation,
+  validate,
+  resetPassword
 );
 
 router.get("/dashboard", protectParent, dashboard);

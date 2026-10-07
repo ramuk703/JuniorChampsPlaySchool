@@ -3,6 +3,7 @@ import {
   FiCalendar,
   FiCreditCard,
   FiGrid,
+  FiImage,
   FiLogOut,
   FiSettings,
   FiUsers,
@@ -55,6 +56,11 @@ const navigation = [
   to: "/admin/fee-structures",
   icon: FiCreditCard,
 },
+  {
+    label: "Gallery",
+    to: "/admin/gallery",
+    icon: FiImage,
+  },
   {
     label: "Payments",
     to: "/admin/payments",

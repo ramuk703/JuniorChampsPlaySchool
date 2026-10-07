@@ -75,3 +75,18 @@ exports.parentListValidation = [
     .isLength({ max: 100 })
     .withMessage("Search must not exceed 100 characters"),
 ];
+
+
+exports.changePasswordValidation = [
+  body("currentPassword")
+    .isString()
+    .withMessage("Current password must be a string")
+    .notEmpty()
+    .withMessage("Current password is required"),
+
+  body("newPassword")
+    .isString()
+    .withMessage("New password must be a string")
+    .isLength({ min: 8, max: 128 })
+    .withMessage("New password must be between 8 and 128 characters"),
+];

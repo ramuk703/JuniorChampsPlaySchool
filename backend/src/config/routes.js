@@ -22,6 +22,8 @@ module.exports = (app) => {
   const feeStructureRoutes = require("../routes/feeStructure.Routes");
   app.use("/api/v1/fee-structures", feeStructureRoutes);
 
+  app.use("/api/v1/public/galleries", require("../routes/publicGallery.Routes"));
+  app.use("/api/v1/galleries", require("../routes/gallery.Routes"));
   app.use("/api/v1/parents", require("../routes/parent.Routes"));
   app.use(
     "/api/v1/teacher-attendance",

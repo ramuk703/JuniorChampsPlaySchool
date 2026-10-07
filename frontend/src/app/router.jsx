@@ -25,13 +25,22 @@ import AttendancePage from "../pages/admin/AttendancePage";
 import FeesPage from "../pages/admin/FeesPage";
 import FeeStructuresPage from "../pages/admin/FeeStructuresPage";
 import TeacherAttendancePage from "../pages/admin/TeacherAttendancePage";
+import AdminGalleryPage from "../pages/admin/GalleryPage";
 import LoginPage from "../pages/auth/LoginPage";
+import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 import ParentLoginPage from "../pages/parent/ParentLoginPage";
+import ParentForgotPasswordPage from "../pages/parent/ParentForgotPasswordPage";
+import ParentResetPasswordPage from "../pages/parent/ParentResetPasswordPage";
 import ParentDashboardPage from "../pages/parent/ParentDashboardPage";
 import ParentAttendancePage from "../pages/parent/ParentAttendancePage";
 import ParentFeesPage from "../pages/parent/ParentFeesPage";
 import ParentChildPage from "../pages/parent/ParentChildPage";
+import ParentProfilePage from "../pages/parent/ParentProfilePage";
+import ParentPasswordPage from "../pages/parent/ParentPasswordPage";
 import HomePage from "../pages/public/HomePage";
+import PublicGalleryPage from "../pages/public/GalleryPage";
+import GalleryDetailPage from "../pages/public/GalleryDetailPage";
 
 const router = createBrowserRouter([
   {
@@ -41,6 +50,14 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
+      },
+      {
+        path: "gallery",
+        element: <PublicGalleryPage />,
+      },
+      {
+        path: "gallery/:id",
+        element: <GalleryDetailPage />,
       },
     ],
   },
@@ -53,6 +70,14 @@ const router = createBrowserRouter([
         path: "login",
         element: <LoginPage />,
       },
+      {
+        path: "forgot-password",
+        element: <ForgotPasswordPage />,
+      },
+      {
+        path: "reset-password",
+        element: <ResetPasswordPage />,
+      },
     ],
   },
 
@@ -63,6 +88,28 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <ParentLoginPage />,
+      },
+    ],
+  },
+
+  {
+    path: "/parent/forgot-password",
+    element: <AuthLayout />,
+    children: [
+      {
+        index: true,
+        element: <ParentForgotPasswordPage />,
+      },
+    ],
+  },
+
+  {
+    path: "/parent/reset-password",
+    element: <AuthLayout />,
+    children: [
+      {
+        index: true,
+        element: <ParentResetPasswordPage />,
       },
     ],
   },
@@ -85,6 +132,14 @@ const router = createBrowserRouter([
       {
         path: "/parent/fees",
         element: <ParentFeesPage />,
+      },
+      {
+        path: "/parent/profile",
+        element: <ParentProfilePage />,
+      },
+      {
+        path: "/parent/password",
+        element: <ParentPasswordPage />,
       },
     ],
   },
@@ -132,9 +187,13 @@ const router = createBrowserRouter([
                 element: <FeesPage />,
               },
               {
-                 path: "fee-structures",
+                path: "fee-structures",
                 element: <FeeStructuresPage />,
-            },
+              },
+              {
+                path: "gallery",
+                element: <AdminGalleryPage />,
+              },
               {
                 path: "teacher-attendance",
                 element: <TeacherAttendancePage />,

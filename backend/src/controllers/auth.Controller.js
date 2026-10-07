@@ -1,10 +1,11 @@
+const crypto = require("crypto");
 // Sahi paths: Kyunki controllers folder 'src' ke andar hai, toh ek folder peeche (src/) ja kar models aur utils milenge
 const auditLog = require("../utils/auditLog");
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const authProtection = require("../services/authProtection.service");
 const emailService = require("../services/email.service");
-const { welcomeEmail } = require("../templates/email");
+const { welcomeEmail, passwordResetEmail } = require("../templates/email");
 
 // 1. Register User Function
 const registerUser = async (req, res) => {
@@ -258,10 +259,149 @@ const logoutUser = async (req, res) => {
 };
 
 // 6. Sabhi functions ko perfectly export karna (including logoutUser)
+
+// 5. Request Password Reset
+const forgotPassword = async (req, res) => {
+  const genericResponse = {
+    success: true,
+    message:
+      "If an account with that email exists, a password reset link has been sent.",
+  };
+
+  try {
+    const normalizedEmail = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    // Do not reveal whether the email exists.
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires =
+      new Date(Date.now() + 15 * 60 * 1000);
+
+    await user.save();
+
+    const frontendUrl =
+      process.env.FRONTEND_URL || "http://localhost:5173";
+
+    const resetUrl =
+      `${frontendUrl}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+    const email = passwordResetEmail({
+      name: user.name,
+      resetUrl,
+      expiresIn: "15 minutes",
+    });
+
+    try {
+      await emailService.sendEmail({
+        to: user.email,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+      });
+    } catch (emailError) {
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+
+      auditLog({
+        req,
+        action: "PASSWORD_RESET_EMAIL_FAILED",
+        resource: "Authentication",
+        resourceId: user._id,
+      });
+
+      return res.json(genericResponse);
+    }
+
+    auditLog({
+      req,
+      action: "PASSWORD_RESET_REQUEST",
+      resource: "Authentication",
+      resourceId: user._id,
+    });
+
+    return res.json(genericResponse);
+  } catch (error) {
+    return res.json(genericResponse);
+  }
+};
+
+
+// 6. Reset Password
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(String(token))
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: {
+        $gt: new Date(),
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired password reset token",
+      });
+    }
+
+    user.password = newPassword;
+
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+
+    // Invalidate all existing sessions.
+    user.tokenVersion += 1;
+
+    await user.save();
+
+    auditLog({
+      req,
+      action: "PASSWORD_RESET",
+      resource: "Authentication",
+      resourceId: user._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
   logoutUser,
 };

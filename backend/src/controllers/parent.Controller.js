@@ -6,6 +6,8 @@ const Parent = require("../models/Parent");
 const auditLog = require("../utils/auditLog");
 const generateToken = require("../utils/generateToken");
 const authProtection = require("../services/authProtection.service");
+const emailService = require("../services/email.service");
+const { passwordResetEmail } = require("../templates/email");
 
 const Student = require("../models/Student");
 const Attendance = require("../models/Attendance");
@@ -36,6 +38,145 @@ const buildMultiFieldSearch = (search = "", fields = []) => {
       })),
     })),
   };
+};
+
+
+// Parent Password Reset Request
+exports.forgotPassword = async (req, res) => {
+  const genericResponse = {
+    success: true,
+    message:
+      "If an account with that email exists, a password reset link has been sent.",
+  };
+
+  try {
+    const normalizedEmail = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    const parent = await Parent.findOne({
+      email: normalizedEmail,
+      deletedAt: null,
+    });
+
+    // Do not reveal whether the email exists.
+    if (!parent) {
+      return res.json(genericResponse);
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    parent.resetPasswordToken = hashedToken;
+    parent.resetPasswordExpires =
+      new Date(Date.now() + 15 * 60 * 1000);
+
+    await parent.save();
+
+    const frontendUrl =
+      process.env.FRONTEND_URL || "http://localhost:5173";
+
+    const resetUrl =
+      `${frontendUrl}/parent/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+    const email = passwordResetEmail({
+      name: parent.fatherName,
+      resetUrl,
+      expiresIn: "15 minutes",
+    });
+
+    try {
+      await emailService.sendEmail({
+        to: parent.email,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+      });
+    } catch (emailError) {
+      parent.resetPasswordToken = null;
+      parent.resetPasswordExpires = null;
+      await parent.save();
+
+      auditLog({
+        req,
+        action: "PASSWORD_RESET_EMAIL_FAILED",
+        resource: "Parent",
+        resourceId: parent._id,
+      });
+
+      return res.json(genericResponse);
+    }
+
+    auditLog({
+      req,
+      action: "PASSWORD_RESET_REQUEST",
+      resource: "Parent",
+      resourceId: parent._id,
+    });
+
+    return res.json(genericResponse);
+  } catch (error) {
+    return res.json(genericResponse);
+  }
+};
+
+
+// Parent Password Reset
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(String(token))
+      .digest("hex");
+
+    const parent = await Parent.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: {
+        $gt: new Date(),
+      },
+      deletedAt: null,
+    });
+
+    if (!parent) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired password reset token",
+      });
+    }
+
+    parent.password = newPassword;
+
+    parent.resetPasswordToken = null;
+    parent.resetPasswordExpires = null;
+
+    // Invalidate all existing sessions.
+    parent.tokenVersion += 1;
+
+    await parent.save();
+
+    auditLog({
+      req,
+      action: "PASSWORD_RESET",
+      resource: "Parent",
+      resourceId: parent._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 // 1. Register Parent (Create Event)

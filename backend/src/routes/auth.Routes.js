@@ -7,6 +7,8 @@ const {
   loginUser,
   getProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
   logoutUser,
 } = require("../controllers/auth.Controller");
 
@@ -19,6 +21,8 @@ const {
   registerUserValidation,
   loginValidation,
   changePasswordValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
 } = require("../validators/authValidator");
 
 // Rate limiters import (Added sensitiveLimiter)
@@ -91,6 +95,22 @@ router.post("/register", registrationLimiter, registerUserValidation, validate, 
  */
 
 router.post("/login", authLimiter, loginValidation, validate, loginUser);
+
+router.post(
+  "/forgot-password",
+  authLimiter,
+  forgotPasswordValidation,
+  validate,
+  forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  sensitiveLimiter,
+  resetPasswordValidation,
+  validate,
+  resetPassword
+);
 router.get("/profile", protect, getProfile);
 
 // Password Change Route (User)

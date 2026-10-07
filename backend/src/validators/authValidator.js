@@ -92,3 +92,24 @@ exports.changePasswordValidation = [
     .isLength({ min: 8, max: 128 })
     .withMessage("New password must be between 8 and 128 characters"),
 ];
+
+exports.forgotPasswordValidation = [
+  body("email")
+    .isEmail()
+    .withMessage("Invalid email address")
+    .normalizeEmail(),
+];
+
+exports.resetPasswordValidation = [
+  body("token")
+    .isString()
+    .withMessage("Reset token must be a string")
+    .matches(/^[a-fA-F0-9]{64}$/)
+    .withMessage("Invalid reset token"),
+
+  body("newPassword")
+    .isString()
+    .withMessage("New password must be a string")
+    .isLength({ min: 8, max: 128 })
+    .withMessage("New password must be between 8 and 128 characters"),
+];

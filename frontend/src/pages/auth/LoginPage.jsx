@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FiEye, FiEyeOff, FiLock, FiMail } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { clearAuthError, login } from "../../store/authSlice";
 
@@ -159,6 +159,15 @@ function LoginPage() {
               {errors.password.message}
             </p>
           ) : null}
+        </div>
+
+        <div className="flex justify-end">
+          <Link
+            to="/auth/forgot-password"
+            className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+          >
+            Forgot Password?
+          </Link>
         </div>
 
         <button
