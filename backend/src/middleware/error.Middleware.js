@@ -72,16 +72,20 @@ const errorHandler = (err, req, res, _next) => {
   }
 
   // 🔴 5. General Fallback Error Response
+  const isProduction = process.env.NODE_ENV === "production";
   const statusCode =
     err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
 
   const response = {
     success: false,
-    message: err.message || "Server Error",
+    message:
+      isProduction && statusCode >= 500
+        ? "Internal server error"
+        : err.message || "Server Error",
   };
 
   // Stack trace sirf non-production environment mein bhejenge
-  if (process.env.NODE_ENV !== "production" && err.stack) {
+  if (!isProduction && err.stack) {
     response.stack = err.stack;
   }
 
