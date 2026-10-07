@@ -130,6 +130,24 @@ if (port > 65535) {
   throw new Error("PORT must be between 1 and 65535.");
 }
 
+const trustProxyRaw = String(process.env.TRUST_PROXY || "false").trim();
+
+let trustProxy;
+
+if (trustProxyRaw === "true") {
+  trustProxy = true;
+} else if (trustProxyRaw === "false") {
+  trustProxy = false;
+} else if (/^\d+$/.test(trustProxyRaw)) {
+  trustProxy = Number(trustProxyRaw);
+
+  if (!Number.isInteger(trustProxy) || trustProxy < 0) {
+    throw new Error("TRUST_PROXY must be false, true, or a non-negative integer.");
+  }
+} else {
+  throw new Error("TRUST_PROXY must be false, true, or a non-negative integer.");
+}
+
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN?.trim() || "7d";
 
 const shutdownTimeoutMs = readPositiveInteger(
@@ -177,6 +195,7 @@ module.exports = {
   nodeEnv,
   port,
   mongoUri,
+  trustProxy,
 
   jwtSecret,
   jwtExpiresIn,

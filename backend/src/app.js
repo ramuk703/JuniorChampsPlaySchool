@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 
 const { swaggerUi, swaggerSpec } = require("./docs/swagger");
+const { trustProxy } = require("./config/env");
 
 const configureMiddleware = require("./config/middleware");
 const configureRoutes = require("./config/routes");
@@ -10,7 +11,7 @@ const errorHandler = require("./middleware/error.Middleware");
 
 const app = express();
 
-app.set("trust proxy", 1);
+app.set("trust proxy", trustProxy);
 
 configureMiddleware(app);
 

@@ -13,7 +13,8 @@ if (mongoUri) {
     process.env.NODE_ENV = "test";
   } catch (error) {
     throw new Error(
-      `Invalid MONGODB_URI in test environment: ${error.message}`
+      `Invalid MONGODB_URI in test environment: ${error.message}`,
+      { cause: error }
     );
   }
 }
