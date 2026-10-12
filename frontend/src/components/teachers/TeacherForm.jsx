@@ -93,6 +93,15 @@ const TeacherForm = ({
 
   }, [initialData, reset]);
 
+  useEffect(() => {
+    return () => {
+      if (photoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
+
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
 

@@ -50,3 +50,13 @@ export const resetParentPassword = async ({ token, newPassword }) => {
 
   return response.data;
 };
+
+
+export const uploadParentPhoto = async (file) => {
+  const formData = new FormData();
+  formData.append("parentPhoto", file);
+
+  const response = await api.patch("/parents/profile/photo", formData);
+
+  return response.data;
+};

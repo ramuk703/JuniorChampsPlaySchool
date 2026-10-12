@@ -3,44 +3,17 @@ import { createBrowserRouter } from "react-router-dom";
 import AdminRoute from "../components/auth/AdminRoute";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import ParentRoute from "../components/auth/ParentRoute";
+import TeacherRoute from "../components/auth/TeacherRoute";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AuthLayout from "../layouts/AuthLayout";
 import PublicLayout from "../layouts/PublicLayout";
 
-import AddStudentPage from "../pages/admin/AddStudentPage";
-import AddTeacherPage from "../pages/admin/AddTeacherPage";
-import AddParentPage from "../pages/admin/AddParentPage";
-import EditStudentPage from "../pages/admin/EditStudentPage";
-import EditTeacherPage from "../pages/admin/EditTeacherPage";
-import EditParentPage from "../pages/admin/EditParentPage";
-import DashboardPage from "../pages/admin/DashboardPage";
-import DeletedStudentsPage from "../pages/admin/DeletedStudentsPage";
-import DeletedTeachersPage from "../pages/admin/DeletedTeachersPage";
-import DeletedParentsPage from "../pages/admin/DeletedParentsPage"; // Added DeletedParentsPage import
-import StudentsPage from "../pages/admin/StudentsPage";
-import TeachersPage from "../pages/admin/TeachersPage";
-import ParentsPage from "../pages/admin/ParentsPage";
-import AttendancePage from "../pages/admin/AttendancePage";
-import FeesPage from "../pages/admin/FeesPage";
-import FeeStructuresPage from "../pages/admin/FeeStructuresPage";
-import TeacherAttendancePage from "../pages/admin/TeacherAttendancePage";
-import AdminGalleryPage from "../pages/admin/GalleryPage";
-import LoginPage from "../pages/auth/LoginPage";
-import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
-import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
-import ParentLoginPage from "../pages/parent/ParentLoginPage";
-import ParentForgotPasswordPage from "../pages/parent/ParentForgotPasswordPage";
-import ParentResetPasswordPage from "../pages/parent/ParentResetPasswordPage";
-import ParentDashboardPage from "../pages/parent/ParentDashboardPage";
-import ParentAttendancePage from "../pages/parent/ParentAttendancePage";
-import ParentFeesPage from "../pages/parent/ParentFeesPage";
-import ParentChildPage from "../pages/parent/ParentChildPage";
-import ParentProfilePage from "../pages/parent/ParentProfilePage";
-import ParentPasswordPage from "../pages/parent/ParentPasswordPage";
-import HomePage from "../pages/public/HomePage";
-import PublicGalleryPage from "../pages/public/GalleryPage";
-import GalleryDetailPage from "../pages/public/GalleryDetailPage";
+
+const lazyPage = (importer) => async () => {
+  const module = await importer();
+  return { Component: module.default };
+};
 
 const router = createBrowserRouter([
   {
@@ -49,15 +22,15 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        lazy: lazyPage(() => import("../pages/public/HomePage")),
       },
       {
         path: "gallery",
-        element: <PublicGalleryPage />,
+        lazy: lazyPage(() => import("../pages/public/GalleryPage")),
       },
       {
         path: "gallery/:id",
-        element: <GalleryDetailPage />,
+        lazy: lazyPage(() => import("../pages/public/GalleryDetailPage")),
       },
     ],
   },
@@ -68,15 +41,15 @@ const router = createBrowserRouter([
     children: [
       {
         path: "login",
-        element: <LoginPage />,
+        lazy: lazyPage(() => import("../pages/auth/LoginPage")),
       },
       {
         path: "forgot-password",
-        element: <ForgotPasswordPage />,
+        lazy: lazyPage(() => import("../pages/auth/ForgotPasswordPage")),
       },
       {
         path: "reset-password",
-        element: <ResetPasswordPage />,
+        lazy: lazyPage(() => import("../pages/auth/ResetPasswordPage")),
       },
     ],
   },
@@ -87,7 +60,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <ParentLoginPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentLoginPage")),
       },
     ],
   },
@@ -98,7 +71,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <ParentForgotPasswordPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentForgotPasswordPage")),
       },
     ],
   },
@@ -109,7 +82,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <ParentResetPasswordPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentResetPasswordPage")),
       },
     ],
   },
@@ -119,31 +92,47 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/parent",
-        element: <ParentDashboardPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentDashboardPage")),
       },
       {
         path: "/parent/child",
-        element: <ParentChildPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentChildPage")),
       },
       {
         path: "/parent/attendance",
-        element: <ParentAttendancePage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentAttendancePage")),
       },
       {
         path: "/parent/fees",
-        element: <ParentFeesPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentFeesPage")),
       },
       {
         path: "/parent/profile",
-        element: <ParentProfilePage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentProfilePage")),
       },
       {
         path: "/parent/password",
-        element: <ParentPasswordPage />,
+        lazy: lazyPage(() => import("../pages/parent/ParentPasswordPage")),
       },
     ],
   },
 
+
+  {
+    path: "/teacher/login",
+    element: <AuthLayout />,
+    children: [
+      { index: true, lazy: lazyPage(() => import("../pages/teacher/TeacherLoginPage")) },
+    ],
+  },
+  {
+    element: <TeacherRoute />,
+    children: [
+      { path: "/teacher", lazy: lazyPage(() => import("../pages/teacher/TeacherDashboardPage")) },
+      { path: "/teacher/profile", lazy: lazyPage(() => import("../pages/teacher/TeacherProfilePage")) },
+      { path: "/teacher/attendance", lazy: lazyPage(() => import("../pages/teacher/TeacherAttendancePage")) },
+    ],
+  },
   {
     element: <ProtectedRoute />,
     children: [
@@ -156,81 +145,85 @@ const router = createBrowserRouter([
             children: [
               {
                 index: true,
-                element: <DashboardPage />,
+                lazy: lazyPage(() => import("../pages/admin/DashboardPage")),
               },
               {
                 path: "students",
-                element: <StudentsPage />,
+                lazy: lazyPage(() => import("../pages/admin/StudentsPage")),
               },
               {
                 path: "students/new",
-                element: <AddStudentPage />,
+                lazy: lazyPage(() => import("../pages/admin/AddStudentPage")),
               },
               {
                 path: "teachers",
-                element: <TeachersPage />,
+                lazy: lazyPage(() => import("../pages/admin/TeachersPage")),
               },
               {
                 path: "teachers/new",
-                element: <AddTeacherPage />,
+                lazy: lazyPage(() => import("../pages/admin/AddTeacherPage")),
               },
               {
                 path: "parents",
-                element: <ParentsPage />,
+                lazy: lazyPage(() => import("../pages/admin/ParentsPage")),
               },
               {
                 path: "attendance",
-                element: <AttendancePage />,
+                lazy: lazyPage(() => import("../pages/admin/AttendancePage")),
               },
               {
                 path: "fees",
-                element: <FeesPage />,
+                lazy: lazyPage(() => import("../pages/admin/FeesPage")),
               },
               {
                 path: "fee-structures",
-                element: <FeeStructuresPage />,
+                lazy: lazyPage(() => import("../pages/admin/FeeStructuresPage")),
               },
               {
                 path: "gallery",
-                element: <AdminGalleryPage />,
+                lazy: lazyPage(() => import("../pages/admin/GalleryPage")),
               },
               {
                 path: "teacher-attendance",
-                element: <TeacherAttendancePage />,
+                lazy: lazyPage(() => import("../pages/admin/TeacherAttendancePage")),
               },
               {
                 path: "parents/new",
-                element: <AddParentPage />,
+                lazy: lazyPage(() => import("../pages/admin/AddParentPage")),
               },
               {
                 path: "parents/deleted", // Added deleted parents route
-                element: <DeletedParentsPage />,
+                lazy: lazyPage(() => import("../pages/admin/DeletedParentsPage")),
               },
               {
                 path: "parents/:id/edit",
-                element: <EditParentPage />,
+                lazy: lazyPage(() => import("../pages/admin/EditParentPage")),
               },
               {
                 path: "students/deleted",
-                element: <DeletedStudentsPage />,
+                lazy: lazyPage(() => import("../pages/admin/DeletedStudentsPage")),
               },
               {
                 path: "teachers/deleted",
-                element: <DeletedTeachersPage />,
+                lazy: lazyPage(() => import("../pages/admin/DeletedTeachersPage")),
               },
               {
                 path: "students/:id/edit",
-                element: <EditStudentPage />,
+                lazy: lazyPage(() => import("../pages/admin/EditStudentPage")),
               },
               {
                 path: "teachers/:id/edit",
-                element: <EditTeacherPage />,
+                lazy: lazyPage(() => import("../pages/admin/EditTeacherPage")),
               },
             ],
           },
         ],
       },
     ],
+  },
+  {
+    path: "*",
+    lazy: lazyPage(() => import("../pages/public/NotFoundPage")),
   },
 ]);
 

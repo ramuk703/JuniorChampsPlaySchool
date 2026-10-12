@@ -7,6 +7,8 @@ const storage = multer.diskStorage({
       cb(null, "uploads/teachers");
     } else if (file.fieldname === "studentPhoto") {
       cb(null, "uploads/students");
+    } else if (file.fieldname === "parentPhoto") {
+      cb(null, "uploads/parents");
     } else {
       cb(null, "uploads/gallery");
     }

@@ -1,11 +1,9 @@
 import {
-  FiBarChart2,
   FiCalendar,
   FiCreditCard,
   FiGrid,
   FiImage,
   FiLogOut,
-  FiSettings,
   FiUsers,
   FiUserCheck,
   FiX,
@@ -61,11 +59,6 @@ const navigation = [
     to: "/admin/gallery",
     icon: FiImage,
   },
-  {
-    label: "Payments",
-    to: "/admin/payments",
-    icon: FiBarChart2,
-  },
 ];
 
 function Sidebar({ isOpen, onClose }) {
@@ -88,7 +81,7 @@ function Sidebar({ isOpen, onClose }) {
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -140,26 +133,6 @@ function Sidebar({ isOpen, onClose }) {
             })}
           </div>
 
-          <div className="mt-8">
-            <p className="px-3 pb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              System
-            </p>
-
-            <NavLink
-              to="/admin/settings"
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`
-              }
-            >
-              <FiSettings size={18} />
-              <span>Settings</span>
-            </NavLink>
-          </div>
         </nav>
 
         <div className="border-t border-slate-200 p-4">

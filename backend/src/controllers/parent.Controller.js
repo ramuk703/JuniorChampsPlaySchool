@@ -229,6 +229,7 @@ exports.registerParent = async (req, res) => {
       email: parent.email,
       mobile: parent.mobile,
       address: parent.address,
+      photo: parent.photo,
       student: parent.student,
       createdAt: parent.createdAt,
       updatedAt: parent.updatedAt,
@@ -321,6 +322,7 @@ exports.loginParent = async (req, res) => {
       email: parent.email,
       mobile: parent.mobile,
       address: parent.address,
+      photo: parent.photo,
       student: parent.student,
       createdAt: parent.createdAt,
       updatedAt: parent.updatedAt,
@@ -346,7 +348,7 @@ exports.dashboard = async (req, res) => {
       _id: req.user._id,
       deletedAt: null,
     })
-      .select("_id fatherName motherName email mobile address student")
+      .select("_id fatherName motherName email mobile address photo student")
       .lean();
 
     if (!parent) {
@@ -498,6 +500,7 @@ exports.dashboard = async (req, res) => {
         email: parent.email,
         mobile: parent.mobile,
         address: parent.address,
+        photo: parent.photo,
       },
       student,
       attendance,
@@ -939,7 +942,7 @@ exports.logoutParent = async (req, res) => {
  */
 
 const PARENT_SELECT_FIELDS =
-  "_id fatherName motherName email mobile address student createdAt updatedAt";
+  "_id fatherName motherName email mobile address student photo createdAt updatedAt";
 
 const ADMIN_PARENT_SELECT_FIELDS =
   "_id fatherName motherName email mobile address student createdAt updatedAt deletedAt";
@@ -1129,6 +1132,80 @@ exports.createParent = async (req, res) => {
 /**
  * Update parent from Admin Portal.
  */
+
+/**
+ * Upload/update the authenticated parent's profile photo.
+ */
+exports.uploadParentPhoto = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Profile photo is required",
+      });
+    }
+
+    const parentId = req.user.id || req.user._id;
+
+    const parent = await Parent.findOne({
+      _id: parentId,
+      deletedAt: null,
+    });
+
+    if (!parent) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent not found",
+      });
+    }
+
+    const oldPhoto = parent.photo;
+
+    parent.photo = req.file.path;
+    await parent.save();
+
+    if (oldPhoto && oldPhoto !== req.file.path) {
+      const fs = require("fs-extra");
+
+      try {
+        await fs.remove(oldPhoto);
+      } catch (fileError) {
+        // Keep database update successful if old-file cleanup fails.
+      }
+    }
+
+    auditLog({
+      req,
+      action: "UPDATE",
+      resource: "Parent",
+      resourceId: parent._id,
+      details: {
+        field: "photo",
+      },
+    });
+
+    if (cacheInvalidationService?.parent) {
+      await cacheInvalidationService.parent(parent._id);
+    }
+
+    const safeParent = await Parent.findById(parent._id)
+      .select(PARENT_SELECT_FIELDS)
+      .populate(
+        "student",
+        "_id admissionNo firstName lastName className section photo"
+      )
+      .lean();
+
+    return res.json({
+      success: true,
+      message: "Profile photo updated successfully",
+      parent: safeParent,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateParent = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -1251,7 +1328,7 @@ exports.deleteParent = async (req, res) => {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
@@ -1361,7 +1438,7 @@ exports.restoreParent = async (req, res) => {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 import { FiAlertCircle, FiCheckCircle, FiRefreshCw } from "react-icons/fi";
 
 import { fetchParentDashboard } from "../../store/parentAuthSlice";
@@ -8,8 +9,12 @@ import ParentFeeSummary from "../../components/parentFees/ParentFeeSummary";
 import ParentFeeTable from "../../components/parentFees/ParentFeeTable";
 import ParentRazorpayCheckout from "../../components/payments/ParentRazorpayCheckout";
 
-const getErrorMessage = (error, fallback) =>
-  error?.response?.data?.message || error?.message || fallback;
+const getErrorMessage = (error, fallback) => {
+  const message = error?.response?.data?.message;
+  return typeof message === 'string' && message.trim()
+    ? message
+    : fallback;
+};
 
 function ParentFeesPage() {
   const dispatch = useDispatch();
@@ -144,9 +149,16 @@ function ParentFeesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          <Link
+            to="/parent"
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+          >
+            <span aria-hidden="true">←</span>
+            Back to Dashboard
+          </Link>
           <p className="text-sm font-medium text-indigo-600">
             Parent Portal
           </p>

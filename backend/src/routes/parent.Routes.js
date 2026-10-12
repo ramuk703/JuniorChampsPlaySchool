@@ -24,11 +24,13 @@ const {
   getParentFeeById,
   createParentPaymentOrder,
   verifyParentPayment,
+  uploadParentPhoto,
 } = require("../controllers/parent.Controller");
 
 const { protectParent, protect } = require("../middleware/auth.Middleware");
 const adminOnly = require("../middleware/admin.Middleware");
 const validate = require("../middleware/validate");
+const upload = require("../middleware/upload.Middleware");
 
 const {
   registerParentValidation,
@@ -89,6 +91,14 @@ router.post(
 );
 
 router.get("/dashboard", protectParent, dashboard);
+
+router.patch(
+  "/profile/photo",
+  protectParent,
+  sensitiveLimiter,
+  upload.single("parentPhoto"),
+  uploadParentPhoto
+);
 
 router.get("/payment-config", protectParent, getParentPaymentConfig);
 router.get("/fees", protectParent, getParentFees);

@@ -21,8 +21,15 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["admin", "parent"],
+      enum: ["admin", "parent", "teacher"],
       default: "parent",
+    },
+
+    teacherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Teacher",
+      default: null,
+      index: true,
     },
 
     // Step 1: Added tokenVersion for session invalidation

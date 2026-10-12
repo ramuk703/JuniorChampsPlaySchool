@@ -195,7 +195,7 @@ exports.updateStudent = async (req, res, next) => {
       },
       updateData,
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       }
     );
@@ -239,7 +239,7 @@ exports.deleteStudent = async (req, res, next) => {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
@@ -285,7 +285,7 @@ exports.restoreStudent = async (req, res, next) => {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 

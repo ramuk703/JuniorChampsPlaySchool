@@ -206,7 +206,7 @@ exports.updateTeacher = async (req, res) => {
       },
       updateData,
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       }
     );
@@ -247,7 +247,7 @@ exports.deleteTeacher = async (req, res) => {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
@@ -292,7 +292,7 @@ exports.restoreTeacher = async (req, res) => {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 

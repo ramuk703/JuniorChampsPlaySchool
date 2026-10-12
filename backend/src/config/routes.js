@@ -9,6 +9,8 @@ module.exports = (app) => {
   app.use("/api/v1/auth", require("../routes/auth.Routes"));
   app.use("/api/v1/students", require("../routes/student.Routes"));
   app.use("/api/v1/teachers", require("../routes/teacher.Routes"));
+  app.use("/api/v1/teacher-auth", require("../routes/teacherAuth.Routes"));
+  app.use("/api/v1/teacher-portal", require("../routes/teacherPortal.Routes"));
   app.get(
     "/api/v1/attendance/parent/attendance",
     protectParent,

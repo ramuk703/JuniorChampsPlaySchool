@@ -137,7 +137,38 @@ const protectParent = async (req, res, next) => {
   }
 };
 
+
+// Restrict a valid User token to a linked, active teacher account.
+// Teacher identity is derived from the authenticated User, never request input.
+const teacherOnly = async (req, res, next) => {
+  try {
+    if (!req.user || req.user.role !== "teacher" || !req.user.teacherId) {
+      return res.status(403).json({ success: false, message: "Teacher access only" });
+    }
+
+    const Teacher = require("../models/Teacher");
+    const teacher = await Teacher.findOne({
+      _id: req.user.teacherId,
+      deletedAt: null,
+      status: "Active",
+    }).select("-salary");
+
+    if (!teacher) {
+      return res.status(403).json({
+        success: false,
+        message: "Teacher profile is inactive or unavailable",
+      });
+    }
+
+    req.teacher = teacher;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   protect,
   protectParent,
+  teacherOnly,
 };

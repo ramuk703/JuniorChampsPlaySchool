@@ -1,13 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchParentDashboard } from "../../store/parentAuthSlice";
+import { uploadParentPhoto } from "../../services/parentAuthService";
 
 function getInitials(parent) {
   const first = parent?.fatherName?.trim()?.charAt(0) || "";
   const last = parent?.motherName?.trim()?.charAt(0) || "";
 
   return `${first}${last}`.toUpperCase() || "P";
+}
+
+function getUploadUrl(photo) {
+  if (!photo) return "";
+
+  if (/^https?:\/\//i.test(photo)) {
+    return photo;
+  }
+
+  const apiUrl =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+
+  const origin = apiUrl.replace(/\/api\/v1\/?$/, "");
+
+  return `${origin}/${String(photo).replace(/^\/+/, "")}`;
 }
 
 function ParentProfilePage() {
@@ -19,11 +35,52 @@ function ParentProfilePage() {
 
   const profile = dashboard?.parent || parent;
 
+  const fileInputRef = useRef(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+
   useEffect(() => {
     if (!dashboard) {
       dispatch(fetchParentDashboard());
     }
   }, [dispatch, dashboard]);
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setPhotoError("");
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setPhotoError("Only JPG, PNG, and WebP images are allowed.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError("Profile photo must be 2 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+
+      await uploadParentPhoto(file);
+      await dispatch(fetchParentDashboard());
+    } catch (uploadError) {
+      setPhotoError(
+        uploadError?.response?.data?.message ||
+          "Unable to upload profile photo. Please try again.",
+      );
+    } finally {
+      setUploadingPhoto(false);
+      event.target.value = "";
+    }
+  };
 
   if (dashboardLoading && !profile) {
     return (
@@ -66,8 +123,39 @@ function ParentProfilePage() {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="bg-slate-900 px-6 py-8 sm:px-8">
             <div className="flex flex-col items-center gap-4 sm:flex-row">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-bold text-indigo-700 ring-4 ring-white/20">
-                {getInitials(profile)}
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-2xl font-bold text-indigo-700 ring-4 ring-white/20">
+                  {getUploadUrl(profile?.photo) ? (
+                    <img
+                      src={getUploadUrl(profile.photo)}
+                      alt="Parent profile"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getInitials(profile)
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoChange}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="inline-flex items-center rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {uploadingPhoto
+                    ? "Uploading..."
+                    : profile?.photo
+                      ? "Change Photo"
+                      : "Upload Photo"}
+                </button>
               </div>
 
               <div className="text-center sm:text-left">
@@ -81,6 +169,12 @@ function ParentProfilePage() {
               </div>
             </div>
           </div>
+
+          {photoError && (
+            <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-700 sm:px-8">
+              {photoError}
+            </div>
+          )}
 
           <div className="grid gap-6 p-6 sm:grid-cols-2 sm:p-8">
             <div>

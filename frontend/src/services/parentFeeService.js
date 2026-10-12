@@ -5,9 +5,26 @@ export const getParentPaymentConfig = async () => {
   return response.data;
 };
 
-export const getParentFees = async () => {
-  const response = await api.get("/parents/fees");
-  return response.data;
+let parentFeesRequest = null;
+
+export const getParentFees = async ({ forceRefresh = false } = {}) => {
+  if (parentFeesRequest && !forceRefresh) {
+    return parentFeesRequest;
+  }
+
+  const request = api
+    .get("/parents/fees")
+    .then((response) => response.data);
+
+  parentFeesRequest = request;
+
+  try {
+    return await request;
+  } finally {
+    if (parentFeesRequest === request) {
+      parentFeesRequest = null;
+    }
+  }
 };
 
 export const getParentFeeById = async (feeId) => {

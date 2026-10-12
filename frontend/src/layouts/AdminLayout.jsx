@@ -22,7 +22,7 @@ function AdminLayout() {
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto w-full max-w-7xl">
+          <div className="w-full 2xl:max-w-none">
             <Outlet />
           </div>
         </main>

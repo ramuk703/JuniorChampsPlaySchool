@@ -10,6 +10,7 @@ const connectDB = require("../src/config/db");
 
 const User = require("../src/models/User");
 const Parent = require("../src/models/Parent");
+const Teacher = require("../src/models/Teacher");
 const Student = require("../src/models/Student");
 const emailService = require("../src/services/email.service");
 
@@ -24,6 +25,10 @@ const PARENT_EMAIL = "password-reset-parent@example.com";
 const PARENT_PASSWORD = "OldParentPassword123!";
 const PARENT_NEW_PASSWORD = "NewParentPassword456!";
 
+const TEACHER_EMAIL = "password-reset-teacher@example.com";
+const TEACHER_OLD_PASSWORD = "OldTeacherPassword123!";
+const TEACHER_NEW_PASSWORD = "NewTeacherPassword456!";
+
 let student;
 
 beforeAll(async () => {
@@ -34,6 +39,8 @@ beforeAll(async () => {
 
   await User.deleteOne({ email: ADMIN_EMAIL });
   await Parent.deleteOne({ email: PARENT_EMAIL });
+  await User.deleteOne({ email: TEACHER_EMAIL });
+  await Teacher.deleteOne({ email: TEACHER_EMAIL });
 
   student = await Student.findOne({
     admissionNo: "PASSWORD-RESET-TEST-STUDENT",
@@ -73,6 +80,28 @@ beforeAll(async () => {
     address: "Password Reset Test Address",
     student: student._id,
   });
+
+  const teacher = await Teacher.create({
+    employeeId: "PASSWORD-RESET-TEACHER",
+    firstName: "Password",
+    lastName: "ResetTeacher",
+    gender: "Other",
+    email: TEACHER_EMAIL,
+    mobile: "9000099998",
+    qualification: "B.Ed",
+    experience: 2,
+    classTeacher: "Nursery",
+    address: "Password Reset Test Address",
+    status: "Active",
+  });
+
+  await User.create({
+    name: `${teacher.firstName} ${teacher.lastName}`,
+    email: TEACHER_EMAIL,
+    password: TEACHER_OLD_PASSWORD,
+    role: "teacher",
+    teacherId: teacher._id,
+  });
 });
 
 beforeEach(async () => {
@@ -101,6 +130,8 @@ afterEach(() => {
 afterAll(async () => {
   await User.deleteOne({ email: ADMIN_EMAIL });
   await Parent.deleteOne({ email: PARENT_EMAIL });
+  await User.deleteOne({ email: TEACHER_EMAIL });
+  await Teacher.deleteOne({ email: TEACHER_EMAIL });
 
   if (student?._id) {
     await Student.deleteOne({ _id: student._id });
@@ -295,6 +326,35 @@ describe("Password Reset API — admin/user", () => {
       "Invalid or expired password reset token",
     );
   });
+
+  test("resets a teacher password and allows teacher login", async () => {
+    const forgotResponse = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .send({ email: TEACHER_EMAIL });
+
+    expect(forgotResponse.status).toBe(200);
+    expect(sentEmails).toHaveLength(1);
+    const token = extractTokenFromEmail(sentEmails[0]);
+
+    const resetResponse = await request(app)
+      .post("/api/v1/auth/reset-password")
+      .send({ token, newPassword: TEACHER_NEW_PASSWORD });
+    expect(resetResponse.status).toBe(200);
+    expect(resetResponse.body.success).toBe(true);
+
+    const oldLogin = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({ email: TEACHER_EMAIL, password: TEACHER_OLD_PASSWORD });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({ email: TEACHER_EMAIL, password: TEACHER_NEW_PASSWORD });
+    expect(newLogin.status).toBe(200);
+    expect(newLogin.body.user.role).toBe("teacher");
+    expect(newLogin.body.token).toEqual(expect.any(String));
+  });
+
 });
 
 describe("Password Reset API — parent", () => {

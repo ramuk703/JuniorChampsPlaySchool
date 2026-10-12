@@ -64,6 +64,11 @@ export const fetchParentDashboard = createAsyncThunk(
       );
     }
   },
+  {
+    condition: (_, { getState }) => {
+      return !getState().parentAuth.dashboardLoading;
+    },
+  },
 );
 
 export const logoutParent = createAsyncThunk(

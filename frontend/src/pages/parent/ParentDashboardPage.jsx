@@ -127,6 +127,7 @@ function ParentDashboardPage() {
 [student?.firstName, student?.lastName].filter(Boolean).join(" ") ||
     "Student";
   const photoUrl = getUploadUrl(student?.photo);
+  const parentPhotoUrl = getUploadUrl(parentData?.photo);
 
   const attendancePercentage = Number(attendance.percentage || 0);
 
@@ -178,7 +179,15 @@ function ParentDashboardPage() {
         <div className="border-b border-slate-200 px-5 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-900 text-sm font-bold text-white shadow-sm">
-              {getInitials(parentData?.fatherName, parentData?.motherName)}
+              {parentPhotoUrl ? (
+                <img
+                  src={parentPhotoUrl}
+                  alt={fullParentName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                getInitials(parentData?.fatherName, parentData?.motherName)
+              )}
             </div>
 
             <div className="min-w-0">
@@ -271,7 +280,15 @@ function ParentDashboardPage() {
               </div>
 
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-900 text-sm font-bold text-white shadow-sm">
-                {getInitials(parentData?.fatherName, parentData?.motherName)}
+                {parentPhotoUrl ? (
+                  <img
+                    src={parentPhotoUrl}
+                    alt={fullParentName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  getInitials(parentData?.fatherName, parentData?.motherName)
+                )}
               </div>
             </div>
           </div>

@@ -108,8 +108,7 @@ function ParentRazorpayCheckout({
           } catch (error) {
             onError?.(
               error?.response?.data?.message ||
-                error?.message ||
-                "Payment verification failed."
+                "Unable to verify payment. If money was deducted, contact the school before retrying."
             );
           }
         },
@@ -136,8 +135,7 @@ function ParentRazorpayCheckout({
     } catch (error) {
       onError?.(
         error?.response?.data?.message ||
-          error?.message ||
-          "Unable to start payment."
+          "Unable to start payment. Please try again."
       );
     }
   };
