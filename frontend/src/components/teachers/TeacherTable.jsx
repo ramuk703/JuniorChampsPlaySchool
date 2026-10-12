@@ -1,4 +1,4 @@
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiKey } from "react-icons/fi";
 import TeacherStatusBadge from "./TeacherStatusBadge";
 
 const getPhotoUrl = (photo) => {
@@ -24,6 +24,7 @@ const TeacherTable = ({
   teachers = [],
   onEdit,
   onDelete,
+  onSetPassword,
   isDeleting = false,
 }) => {
   if (!teachers.length) {
@@ -128,6 +129,16 @@ const TeacherTable = ({
 
                   <td className="whitespace-nowrap px-5 py-4">
                     <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onSetPassword(teacher)}
+                        title="Set or reset teacher password"
+                        aria-label={`Set password for ${fullName}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-100 bg-white text-indigo-600 transition hover:bg-indigo-50"
+                      >
+                        <FiKey size={16} />
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => onEdit(teacher)}

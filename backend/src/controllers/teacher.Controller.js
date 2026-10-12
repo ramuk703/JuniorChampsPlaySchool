@@ -1,5 +1,6 @@
 const auditLog = require("../utils/auditLog");
 const Teacher = require("../models/Teacher");
+const User = require("../models/User");
 const ApiResponse = require("../utils/ApiResponse");
 const fs = require("fs-extra");
 const ExcelJS = require("exceljs");
@@ -36,31 +37,73 @@ const buildMultiFieldSearch = (search = "", fields = []) => {
 };
 
 exports.createTeacher = async (req, res) => {
+  let createdTeacher = null;
   try {
-    const teacherData = req.body;
+    const teacherData = { ...req.body };
+    const password = teacherData.password;
+    delete teacherData.password;
 
-    if (req.file) {
-      teacherData.photo = req.file.path;
+    if (typeof password !== "string" || password.length < 8 || password.length > 128) {
+      return res.status(400).json({
+        success: false,
+        message: "Initial password must be between 8 and 128 characters",
+      });
     }
 
-    const teacher = await Teacher.create(teacherData);
+    teacherData.email = String(teacherData.email || "").trim().toLowerCase();
+    const employeeId = String(teacherData.employeeId || "").trim();
+    if (!teacherData.email || !employeeId) {
+      return res.status(400).json({ success: false, message: "Teacher email and employee ID are required" });
+    }
+
+    // Refuse duplicates before creating either record.
+    const [emailTeacher, idTeacher, emailUser] = await Promise.all([
+      Teacher.findOne({ email: teacherData.email, deletedAt: null }),
+      Teacher.findOne({ employeeId, deletedAt: null }),
+      User.findOne({ email: teacherData.email }),
+    ]);
+    if (emailTeacher || emailUser) {
+      return res.status(409).json({ success: false, message: "This email is already linked to an account or teacher" });
+    }
+    if (idTeacher) {
+      return res.status(409).json({ success: false, message: "This employee ID is already in use" });
+    }
+
+    if (String(teacherData.status || "Active").toLowerCase() !== "active") {
+      return res.status(400).json({ success: false, message: "Create the teacher as Active to assign a portal login" });
+    }
+
+    if (req.file) teacherData.photo = req.file.path;
+    createdTeacher = await Teacher.create(teacherData);
+
+    try {
+      await User.create({
+        name: `${createdTeacher.firstName} ${createdTeacher.lastName}`.trim(),
+        email: createdTeacher.email.trim().toLowerCase(),
+        password,
+        role: "teacher",
+        teacherId: createdTeacher._id,
+      });
+    } catch (accountError) {
+      // Roll back the teacher record if the login cannot be created.
+      await Teacher.deleteOne({ _id: createdTeacher._id });
+      createdTeacher = null;
+      throw accountError;
+    }
 
     auditLog({
       req,
       action: "CREATE",
       resource: "Teacher",
-      resourceId: teacher._id,
+      resourceId: createdTeacher._id,
     });
-
-    // 🧹 CACHE INVALIDATION: Clears both Teacher & Dashboard stats caches
-    await cacheInvalidationService.teacher(teacher._id);
-
-    ApiResponse.created(res, "Teacher created successfully", teacher);
+    await cacheInvalidationService.teacher(createdTeacher._id);
+    return ApiResponse.created(res, "Teacher and portal login created successfully", createdTeacher);
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    if (err && err.code === 11000) {
+      return res.status(409).json({ success: false, message: "A teacher or login account already uses this email or employee ID" });
+    }
+    return res.status(500).json({ success: false, message: err.message || "Unable to create teacher and login" });
   }
 };
 

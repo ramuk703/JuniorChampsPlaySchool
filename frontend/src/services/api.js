@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const teacherRoutes = ["/teacher-portal", "/teacher-auth/me"];
+    const teacherRoutes = ["/teacher-portal", "/teacher-auth/me", "/teacher-auth/change-password"];
     const isTeacherRequest = teacherRoutes.some((route) => config.url === route || config.url?.startsWith(`${route}/`));
 
     const parentRoutes = [
@@ -72,7 +72,7 @@ api.interceptors.response.use(
       );
 
       if (!isPublicAuthRequest) {
-        const teacherRoutes = ["/teacher-portal", "/teacher-auth/me"];
+        const teacherRoutes = ["/teacher-portal", "/teacher-auth/me", "/teacher-auth/change-password"];
         const isTeacherRequest = teacherRoutes.some((route) => url === route || url.startsWith(`${route}/`));
 
         const parentRoutes = [

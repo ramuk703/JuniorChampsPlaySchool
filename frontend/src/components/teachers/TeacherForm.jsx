@@ -61,6 +61,7 @@ const TeacherForm = ({
       joiningDate: "",
       salary: "",
       status: "Active",
+      password: "",
     },
   });
 
@@ -156,6 +157,10 @@ const TeacherForm = ({
     formData.append("qualification", data.qualification.trim());
     formData.append("address", data.address.trim());
     formData.append("status", data.status || "Active");
+
+    if (!initialData && data.password) {
+      formData.append("password", data.password);
+    }
 
     if (data.experience !== "") {
       formData.append("experience", data.experience);
@@ -325,6 +330,35 @@ const TeacherForm = ({
             />
             {errorMessage("email")}
           </div>
+
+          {!initialData && (
+            <div>
+              <label className="text-sm font-semibold text-slate-700">
+                Initial Login Password *
+              </label>
+              <input
+                type="password"
+                autoComplete="new-password"
+                {...register("password", {
+                  required: "Initial login password is required",
+                  minLength: {
+                    value: 8,
+                    message: "Password must be at least 8 characters",
+                  },
+                  maxLength: {
+                    value: 128,
+                    message: "Password must not exceed 128 characters",
+                  },
+                })}
+                placeholder="At least 8 characters"
+                className={inputClass("password")}
+              />
+              {errorMessage("password")}
+              <p className="mt-1 text-xs text-slate-500">
+                Share this password securely with the teacher. They can change it after logging in.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="text-sm font-semibold text-slate-700">

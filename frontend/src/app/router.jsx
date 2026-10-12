@@ -130,6 +130,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/teacher", lazy: lazyPage(() => import("../pages/teacher/TeacherDashboardPage")) },
       { path: "/teacher/profile", lazy: lazyPage(() => import("../pages/teacher/TeacherProfilePage")) },
+      { path: "/teacher/change-password", lazy: lazyPage(() => import("../pages/teacher/TeacherChangePasswordPage")) },
       { path: "/teacher/attendance", lazy: lazyPage(() => import("../pages/teacher/TeacherAttendancePage")) },
     ],
   },
@@ -214,6 +215,10 @@ const router = createBrowserRouter([
               {
                 path: "teachers/:id/edit",
                 lazy: lazyPage(() => import("../pages/admin/EditTeacherPage")),
+              },
+              {
+                path: "teachers/:id/password",
+                lazy: lazyPage(() => import("../pages/admin/SetTeacherPasswordPage")),
               },
             ],
           },

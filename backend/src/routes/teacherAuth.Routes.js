@@ -47,7 +47,115 @@ router.post("/provision", protect, adminOnly, sensitiveLimiter, asyncHandler(asy
   });
 }));
 
+/* Admin can assign or reset a teacher's password without email. */
+router.post(
+  "/set-password",
+  protect,
+  adminOnly,
+  sensitiveLimiter,
+  asyncHandler(async (req, res) => {
+    const { teacherId, password } = req.body || {};
+
+    if (!teacherId || !/^[a-f\d]{24}$/i.test(String(teacherId))) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid teacherId is required",
+      });
+    }
+
+    if (
+      typeof password !== "string" ||
+      password.length < 8 ||
+      password.length > 128
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be between 8 and 128 characters",
+      });
+    }
+
+    const teacher = await Teacher.findOne({
+      _id: teacherId,
+      deletedAt: null,
+      status: "Active",
+    });
+
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: "Active teacher not found",
+      });
+    }
+
+    if (!teacher.email || !teacher.email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Teacher must have an email address",
+      });
+    }
+
+    const email = teacher.email.trim().toLowerCase();
+
+    const [emailOwner, teacherUser] = await Promise.all([
+      User.findOne({ email }),
+      User.findOne({ teacherId: teacher._id }),
+    ]);
+
+    if (
+      emailOwner &&
+      (!teacherUser ||
+        !emailOwner._id.equals(teacherUser._id))
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: "This email is already used by another account",
+      });
+    }
+
+    let user = teacherUser || emailOwner;
+
+    if (user && (user.role !== "teacher" ||
+        !user.teacherId ||
+        !user.teacherId.equals(teacher._id))) {
+      return res.status(409).json({
+        success: false,
+        message: "Account is not linked to this teacher",
+      });
+    }
+
+    if (!user) {
+      user = new User({
+        name: `${teacher.firstName} ${teacher.lastName}`.trim(),
+        email,
+        password,
+        role: "teacher",
+        teacherId: teacher._id,
+      });
+    } else {
+      user.name = `${teacher.firstName} ${teacher.lastName}`.trim();
+      user.email = email;
+      user.password = password;
+      user.tokenVersion += 1;
+    }
+
+    // User model hashes the password before saving.
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Teacher password assigned successfully",
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  })
+);
+
 router.post("/login", authLimiter, asyncHandler(async (req, res) => {
+
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = req.body?.password;
   if (!email || typeof password !== "string" || !password) {
@@ -80,6 +188,68 @@ router.post("/login", authLimiter, asyncHandler(async (req, res) => {
     },
   });
 }));
+
+
+/* A logged-in teacher can change only their own password. */
+router.post(
+  "/change-password",
+  protect,
+  teacherOnly,
+  sensitiveLimiter,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (
+      typeof currentPassword !== "string" ||
+      !currentPassword ||
+      typeof newPassword !== "string" ||
+      newPassword.length < 8 ||
+      newPassword.length > 128
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Current password is required; new password must be 8–128 characters",
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must differ from the current password",
+      });
+    }
+
+    // Reload the account so we can verify its stored password hash.
+    const user = await User.findById(req.user._id);
+
+    if (!user || user.role !== "teacher") {
+      return res.status(404).json({
+        success: false,
+        message: "Teacher account not found",
+      });
+    }
+
+    if (!(await user.matchPassword(currentPassword))) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    user.password = newPassword;
+    user.tokenVersion += 1;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully",
+      token: generateToken(user._id, user.role, user.tokenVersion),
+    });
+  })
+);
+
 
 router.get("/me", protect, teacherOnly, (req, res) => res.json({
   success: true,

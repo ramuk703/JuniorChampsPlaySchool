@@ -4,3 +4,9 @@ export const getTeacherMe = async () => (await api.get("/teacher-auth/me")).data
 export const getTeacherDashboard = async () => (await api.get("/teacher-portal/dashboard")).data;
 export const getTeacherProfile = async () => (await api.get("/teacher-portal/profile")).data;
 export const getMyTeacherAttendance = async (params = {}) => (await api.get("/teacher-portal/attendance", { params })).data;
+
+export const changeTeacherPassword = async (payload) =>
+  (await api.post("/teacher-auth/change-password", payload)).data;
+
+export const setTeacherPassword = async (payload) =>
+  (await api.post("/teacher-auth/set-password", payload)).data;

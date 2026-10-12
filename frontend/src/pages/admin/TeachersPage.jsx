@@ -74,6 +74,10 @@ const TeachersPage = () => {
     navigate(`/admin/teachers/${teacher._id}/edit`);
   };
 
+  const handleSetPassword = (teacher) => {
+    navigate(`/admin/teachers/${teacher._id}/password`);
+  };
+
   const handleDelete = (teacher) => {
     const fullName = [teacher.firstName, teacher.lastName]
       .filter(Boolean)
@@ -225,6 +229,7 @@ const TeachersPage = () => {
           <TeacherTable
             teachers={teachers}
             onEdit={handleEdit}
+          onSetPassword={handleSetPassword}
             onDelete={handleDelete}
             isDeleting={deleteMutation.isPending}
           />

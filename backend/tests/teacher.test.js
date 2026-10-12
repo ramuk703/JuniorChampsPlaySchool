@@ -109,7 +109,7 @@ describe("Teacher API — create", () => {
     const response = await request(app)
       .post("/api/v1/teachers")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send(payload);
+      .send({ ...payload, password: "TeacherPass123!" });
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
@@ -140,9 +140,10 @@ describe("Teacher API — create", () => {
       .send({
         ...payload,
         email: `duplicate-${TEST_PREFIX.toLowerCase()}@example.com`,
+        password: "TeacherPass123!",
       });
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(409);
   });
 
   test("rejects duplicate email", async () => {
@@ -156,9 +157,10 @@ describe("Teacher API — create", () => {
       .send({
         ...payload,
         employeeId: `${TEST_PREFIX}-EMAIL-DUP`,
+        password: "TeacherPass123!",
       });
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(409);
   });
 });
 
