@@ -45,6 +45,11 @@ beforeAll(async () => {
     employeeId: { $regex: `^${TEST_PREFIX}-` },
   });
 
+  // Remove test teacher login accounts too; never touch non-test users.
+  await User.deleteMany({
+    email: { $regex: `^teacher-${TEST_PREFIX.toLowerCase()}-` },
+  });
+
   await User.create({
     name: "Teacher Regression Admin",
     email: TEST_ADMIN_EMAIL,
@@ -69,11 +74,21 @@ beforeEach(async () => {
   await Teacher.deleteMany({
     employeeId: { $regex: `^${TEST_PREFIX}-` },
   });
+
+  // Remove test teacher login accounts too; never touch non-test users.
+  await User.deleteMany({
+    email: { $regex: `^teacher-${TEST_PREFIX.toLowerCase()}-` },
+  });
 });
 
 afterAll(async () => {
   await Teacher.deleteMany({
     employeeId: { $regex: `^${TEST_PREFIX}-` },
+  });
+
+  // Remove test teacher login accounts too; never touch non-test users.
+  await User.deleteMany({
+    email: { $regex: `^teacher-${TEST_PREFIX.toLowerCase()}-` },
   });
 
   await User.deleteOne({ email: TEST_ADMIN_EMAIL });
@@ -116,6 +131,29 @@ describe("Teacher API — create", () => {
     expect(response.body.data).toBeDefined();
     expect(response.body.data.employeeId).toBe(payload.employeeId);
     expect(response.body.data.email).toBe(payload.email.toLowerCase());
+
+    // Verify that teacher creation also provisions a working portal account.
+    const linkedUser = await User.findOne({
+      email: payload.email.toLowerCase(),
+      role: "teacher",
+    });
+
+    expect(linkedUser).toBeTruthy();
+    expect(linkedUser.teacherId.toString()).toBe(
+      response.body.data._id.toString()
+    );
+    expect(await linkedUser.matchPassword("TeacherPass123!")).toBe(true);
+
+    const loginResponse = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({
+        email: payload.email,
+        password: "TeacherPass123!",
+      });
+
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body.success).toBe(true);
+    expect(loginResponse.body.user.role).toBe("teacher");
   });
 
   test("rejects a teacher with missing required fields", async () => {
