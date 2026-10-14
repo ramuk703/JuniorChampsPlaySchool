@@ -260,3 +260,143 @@ describe("Teacher account provisioning", () => {
     expect(response.status).toBe(401);
   });
 });
+
+describe("Teacher password management", () => {
+  test("allows an admin to assign a password to an active teacher", async () => {
+    const teacher = await Teacher.create(teacherPayload("301"));
+    const newPassword = "AssignedTeacher123!";
+
+    const assigned = await request(app)
+      .post("/api/v1/teacher-auth/set-password")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        teacherId: String(teacher._id),
+        password: newPassword,
+      });
+
+    expect(assigned.status).toBe(200);
+    expect(assigned.body.success).toBe(true);
+
+    const user = await User.findOne({ email: teacher.email });
+    expect(user).not.toBeNull();
+    expect(user.password).not.toBe(newPassword);
+
+    const login = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({ email: teacher.email, password: newPassword });
+
+    expect(login.status).toBe(200);
+    expect(login.body.token).toEqual(expect.any(String));
+  });
+
+  test("rejects unauthenticated password assignment", async () => {
+    const teacher = await Teacher.create(teacherPayload("302"));
+
+    const response = await request(app)
+      .post("/api/v1/teacher-auth/set-password")
+      .send({
+        teacherId: String(teacher._id),
+        password: "AssignedTeacher123!",
+      });
+
+    expect(response.status).toBe(401);
+  });
+
+  test("rejects password assignment by a non-admin user", async () => {
+    const teacher = await Teacher.create(teacherPayload("305"));
+
+    const parentEmail = `tp-parent-${RUN_ID}@example.com`;
+
+    await User.create({
+      name: "Teacher Portal Test Parent",
+      email: parentEmail,
+      password: "TestParentPassword123!",
+      role: "parent",
+    });
+
+    const parentLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: parentEmail,
+        password: "TestParentPassword123!",
+      });
+
+    expect(parentLogin.status).toBe(200);
+    expect(parentLogin.body.token).toEqual(expect.any(String));
+
+    const response = await request(app)
+      .post("/api/v1/teacher-auth/set-password")
+      .set("Authorization", `Bearer ${parentLogin.body.token}`)
+      .send({
+        teacherId: String(teacher._id),
+        password: "AssignedTeacher123!",
+      });
+
+    expect(response.status).toBe(403);
+  });
+
+  test("allows a teacher to change their password and invalidates the old token", async () => {
+    const linked = await createLinkedTeacher("303");
+    const newPassword = "ChangedTeacher123!";
+
+    const changed = await request(app)
+      .post("/api/v1/teacher-auth/change-password")
+      .set("Authorization", `Bearer ${linked.token}`)
+      .send({
+        currentPassword: TEACHER_PASSWORD,
+        newPassword,
+      });
+
+    expect(changed.status).toBe(200);
+    expect(changed.body.success).toBe(true);
+    expect(changed.body.token).toEqual(expect.any(String));
+
+    const oldTokenAccess = await request(app)
+      .get("/api/v1/teacher-auth/me")
+      .set("Authorization", `Bearer ${linked.token}`);
+
+    expect(oldTokenAccess.status).toBe(401);
+
+    const oldPasswordLogin = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({
+        email: linked.teacher.email,
+        password: TEACHER_PASSWORD,
+      });
+
+    expect(oldPasswordLogin.status).toBe(401);
+
+    const newPasswordLogin = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({
+        email: linked.teacher.email,
+        password: newPassword,
+      });
+
+    expect(newPasswordLogin.status).toBe(200);
+    expect(newPasswordLogin.body.token).toEqual(expect.any(String));
+  });
+
+  test("rejects a password change when the current password is incorrect", async () => {
+    const linked = await createLinkedTeacher("304");
+
+    const response = await request(app)
+      .post("/api/v1/teacher-auth/change-password")
+      .set("Authorization", `Bearer ${linked.token}`)
+      .send({
+        currentPassword: "IncorrectCurrent123!",
+        newPassword: "ChangedTeacher123!",
+      });
+
+    expect(response.status).toBe(401);
+
+    const login = await request(app)
+      .post("/api/v1/teacher-auth/login")
+      .send({
+        email: linked.teacher.email,
+        password: TEACHER_PASSWORD,
+      });
+
+    expect(login.status).toBe(200);
+  });
+});
