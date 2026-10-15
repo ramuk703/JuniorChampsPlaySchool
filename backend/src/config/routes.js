@@ -27,6 +27,7 @@ module.exports = (app) => {
   app.use("/api/v1/public/galleries", require("../routes/publicGallery.Routes"));
   app.use("/api/v1/galleries", require("../routes/gallery.Routes"));
   app.use("/api/v1/parents", require("../routes/parent.Routes"));
+  app.use("/api/v1/admissions", require("../routes/admission.Routes"));
   app.use(
     "/api/v1/teacher-attendance",
     require("../routes/teacherAttendance.Routes")

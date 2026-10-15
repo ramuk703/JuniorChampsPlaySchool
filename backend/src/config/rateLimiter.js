@@ -9,6 +9,8 @@ const DEFAULTS = {
   authMax: 10,
   registerWindowMs: 60 * 60 * 1000,
   registerMax: 5,
+  admissionWindowMs: 60 * 60 * 1000,
+  admissionMax: 5,
   sensitiveWindowMs: 15 * 60 * 1000,
   sensitiveMax: 20,
   exportWindowMs: 15 * 60 * 1000,
@@ -46,6 +48,14 @@ const getConfig = () => ({
   registerMax: readPositiveInteger(
     "RATE_LIMIT_REGISTER_MAX",
     DEFAULTS.registerMax
+  ),
+  admissionWindowMs: readPositiveInteger(
+    "RATE_LIMIT_ADMISSION_WINDOW_MS",
+    DEFAULTS.admissionWindowMs
+  ),
+  admissionMax: readPositiveInteger(
+    "RATE_LIMIT_ADMISSION_MAX",
+    DEFAULTS.admissionMax
   ),
   sensitiveWindowMs: readPositiveInteger(
     "RATE_LIMIT_SENSITIVE_WINDOW_MS",
@@ -126,6 +136,11 @@ const registrationLimiter = createLimiter({
   windowMs: config.registerWindowMs,
   max: config.registerMax,
 });
+const admissionLimiter = createLimiter({
+  name: "admission",
+  windowMs: config.admissionWindowMs,
+  max: config.admissionMax,
+});
 
 const sensitiveLimiter = createLimiter({
   name: "sensitive",
@@ -151,6 +166,7 @@ module.exports = {
   globalApiLimiter,
   authLimiter,
   registrationLimiter,
+  admissionLimiter,
   sensitiveLimiter,
   exportLimiter,
 };

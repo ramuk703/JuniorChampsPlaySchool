@@ -59,6 +59,11 @@ const navigation = [
     to: "/admin/gallery",
     icon: FiImage,
   },
+  {
+    label: "Admissions",
+    to: "/admin/admissions",
+    icon: FiUsers,
+  },
 ];
 
 function Sidebar({ isOpen, onClose }) {

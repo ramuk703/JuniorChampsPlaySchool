@@ -32,6 +32,10 @@ const router = createBrowserRouter([
         path: "gallery/:id",
         lazy: lazyPage(() => import("../pages/public/GalleryDetailPage")),
       },
+      {
+        path: "admissions",
+        lazy: lazyPage(() => import("../pages/AdmissionsPage")),
+      },
     ],
   },
 
@@ -219,6 +223,10 @@ const router = createBrowserRouter([
               {
                 path: "teachers/:id/password",
                 lazy: lazyPage(() => import("../pages/admin/SetTeacherPasswordPage")),
+              },
+              {
+                path: "admissions",
+                lazy: lazyPage(() => import("../pages/admin/AdmissionsPage")),
               },
             ],
           },
